@@ -13,6 +13,7 @@ private:
 
     tank::Grid<Stone> grid_;
     tank::observing_ptr<tank::CircleShape> cursor_;
+
     bool isIn_ {false}, wasIn_ {false};
 
     void hideCursor();

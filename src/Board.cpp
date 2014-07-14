@@ -6,7 +6,8 @@
 #include <Tank/Graphics/RectangleShape.hpp>
 
 Board::Board(unsigned size)
-  : grid_(tank::Vectoru{size,size}, Empty)
+  : tank::Entity({10,10})
+  , grid_(tank::Vectoru{size,size}, Empty)
   //, size_(size)
 {
     const auto pixelSize = stoneSize * size;
@@ -29,9 +30,19 @@ void Board::onAdded()
 void Board::mouseOver()
 {
     using M = tank::Mouse;
-    cursor_->setPos(M::getPos());
-    //cursor_->(M::getPos());
+    auto mPos = M::getPos();
+
+    tank::Vectoru tilePos = { 
+        (mPos.x / stoneSize),
+        (mPos.y / stoneSize)
+    };
+
+    const auto ss = stoneSize;
+    cursor_->setPos(tilePos * ss);
+
     isIn_ = true;
+
+    std::cout << tilePos << std::endl;
 }
 
 void Board::onClick()
