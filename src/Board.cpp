@@ -10,11 +10,20 @@ Board::Board(unsigned size)
   , grid_(tank::Vectoru{size,size}, Empty)
   //, size_(size)
 {
+    using tank::RectangleShape;
+
     const auto pixelSize = stoneSize * size;
     auto g = makeGraphic<tank::RectangleShape>(tank::Vectoru{pixelSize,pixelSize});
     g->setFillColor({0,125,0});
 
     const unsigned stoneRadius = /*std::ceil*/(stoneSize/2.0);
+
+    for (unsigned i = 0; i < size; ++i) {
+        const unsigned offset = i * stoneSize + stoneRadius;
+        makeGraphic<RectangleShape>(tank::Rectu{0, offset, pixelSize, 1})->setFillColor({});
+        makeGraphic<RectangleShape>(tank::Rectu{offset, 0, 1, pixelSize})->setFillColor({});
+    }
+
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
     cursor_->setFillColor({255,255,255,50});
 
@@ -58,7 +67,8 @@ void Board::onClick()
         static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
     };
 
-    grid_[tilePos] = White;
+    grid_[tilePos] = static_cast<Stone>(currentPlayer);
+    currentPlayer = not currentPlayer;
 }
 
 void Board::update()
