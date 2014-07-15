@@ -14,8 +14,18 @@ Board::Board(unsigned size)
     auto g = makeGraphic<tank::RectangleShape>(tank::Vectoru{pixelSize,pixelSize});
     g->setFillColor({0,125,0});
 
-    const unsigned stoneRadius = std::ceil(stoneSize/2.0);
+    const unsigned stoneRadius = /*std::ceil*/(stoneSize/2.0);
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
+    cursor_->setFillColor({255,255,255,50});
+
+    std::cout << static_cast<unsigned>(White);
+    std::cout << static_cast<unsigned>(Black);
+    std::cout << static_cast<unsigned>(Empty) << std::endl;
+    stone_[White] = tank::CircleShape(stoneRadius);
+    stone_[Black] = tank::CircleShape(stoneRadius);
+    stone_[Empty] = tank::CircleShape(0);
+    stone_[Black].setFillColor({});
+    std::cout << "Made it through" << std::endl;
 }
 
 void Board::onAdded()
@@ -31,9 +41,9 @@ void Board::mouseOver()
     using M = tank::Mouse;
     auto mPos = M::getPos() - getPos();
 
-    tank::Vectoru tilePos = { 
-        static_cast<unsigned>(std::floor(static_cast<float>(mPos.x) / stoneSize)),
-        static_cast<unsigned>(std::floor(static_cast<float>(mPos.y) / stoneSize))
+    tank::Vectoru tilePos = {
+        static_cast<unsigned>(std::floor((mPos.x) / stoneSize)),
+        static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
     };
 
     const auto ss = stoneSize;
@@ -44,7 +54,16 @@ void Board::mouseOver()
 
 void Board::onClick()
 {
-    std::cout << "Mouse click" << std::endl;
+    using M = tank::Mouse;
+    auto mPos = M::getPos() - getPos();
+
+    tank::Vectoru tilePos = {
+        static_cast<unsigned>(std::floor((mPos.x) / stoneSize)),
+        static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
+    };
+
+    grid_[tilePos] = White;
+    std::cout << "Set " << tilePos << " to White" << std::endl;
 }
 
 void Board::update()
@@ -54,6 +73,21 @@ void Board::update()
     }
     wasIn_ = isIn_;
     isIn_ = false;
+}
+
+void Board::draw(tank::Camera const& c)
+{
+    tank::Entity::draw(c);
+
+    tank::Vectoru pos {0,0};
+    const auto ss = stoneSize;
+    for (; pos.y < grid_.getHeight(); ++pos.y) {
+        for (; pos.x < grid_.getWidth(); ++pos.x) {
+            //std::cout << pos .x << ", " << pos.y << std::endl;
+            stone_[grid_[pos]].draw(pos*ss + getPos(),0,{},c);
+        }
+        pos.x = 0;
+    }
 }
 
 void Board::hideCursor()

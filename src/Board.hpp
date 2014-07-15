@@ -1,4 +1,5 @@
 #include <Tank/System/Entity.hpp>
+#include <array>
 #include <Tank/Utility/Grid.hpp>
 #include <Tank/Graphics/CircleShape.hpp>
 
@@ -13,17 +14,19 @@ private:
 
     tank::Grid<Stone> grid_;
     tank::observing_ptr<tank::CircleShape> cursor_;
+    std::array<tank::CircleShape, 3> stone_;
 
     bool isIn_ {false}, wasIn_ {false};
 
     void hideCursor();
-    //unsigned size_;
 
 public:
     static constexpr unsigned stoneSize = 19;
 
     virtual void onAdded() override;
     virtual void update() override;
+    virtual void draw(tank::Camera const&) override;
+
     void mouseOver();
     void onClick();
     Board(unsigned size = 19);
