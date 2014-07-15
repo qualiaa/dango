@@ -10,15 +10,15 @@ class Board : public tank::Entity
 {
 private:
     enum Stone {
-        White,
         Black,
+        White,
         Empty
     };
 
     tank::Grid<Stone> grid_;
     tank::observing_ptr<tank::CircleShape> cursor_;
     std::array<tank::CircleShape, 3> stone_;
-    bool currentPlayer {White};
+    bool currentPlayer {Black};
 
     bool isIn_ {false}, wasIn_ {false};
 
@@ -33,6 +33,7 @@ public:
 
     void mouseOver();
     void onClick();
+    void onRelease();
     Board(unsigned size = 19);
 };
 

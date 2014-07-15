@@ -25,7 +25,7 @@ Board::Board(unsigned size)
     }
 
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
-    cursor_->setFillColor({255,255,255,50});
+    cursor_->setFillColor({0,0,0,40});
 
     stone_[White] = tank::CircleShape(stoneRadius);
     stone_[Black] = tank::CircleShape(stoneRadius);
@@ -39,6 +39,7 @@ void Board::onAdded()
     using B = M::Button;
     connect(M::InEntity(*this), &Board::mouseOver);
     connect(M::InEntity(*this) && M::ButtonPress(B::Left), &Board::onClick);
+    connect(M::InEntity(*this) && M::ButtonRelease(B::Left), &Board::onRelease);
 }
 
 void Board::mouseOver()
@@ -57,7 +58,7 @@ void Board::mouseOver()
     isIn_ = true;
 }
 
-void Board::onClick()
+void Board::onRelease()
 {
     using M = tank::Mouse;
     auto mPos = M::getPos() - getPos();
@@ -69,6 +70,15 @@ void Board::onClick()
 
     grid_[tilePos] = static_cast<Stone>(currentPlayer);
     currentPlayer = not currentPlayer;
+
+    uint8_t c = currentPlayer * 255;
+    cursor_->setFillColor({c,c,c,40});
+}
+
+void Board::onClick()
+{
+    uint8_t c = currentPlayer * 255;
+    cursor_->setFillColor({c,c,c,100});
 }
 
 void Board::update()
