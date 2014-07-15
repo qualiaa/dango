@@ -1,3 +1,6 @@
+#ifndef BOARD_HPP
+#define BOARD_HPP
+
 #include <Tank/System/Entity.hpp>
 #include <array>
 #include <Tank/Utility/Grid.hpp>
@@ -15,6 +18,7 @@ private:
     tank::Grid<Stone> grid_;
     tank::observing_ptr<tank::CircleShape> cursor_;
     std::array<tank::CircleShape, 3> stone_;
+    bool currentPlayer {White};
 
     bool isIn_ {false}, wasIn_ {false};
 
@@ -31,3 +35,5 @@ public:
     void onClick();
     Board(unsigned size = 19);
 };
+
+#endif /* BOARD_HPP */
