@@ -18,14 +18,10 @@ Board::Board(unsigned size)
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
     cursor_->setFillColor({255,255,255,50});
 
-    std::cout << static_cast<unsigned>(White);
-    std::cout << static_cast<unsigned>(Black);
-    std::cout << static_cast<unsigned>(Empty) << std::endl;
     stone_[White] = tank::CircleShape(stoneRadius);
     stone_[Black] = tank::CircleShape(stoneRadius);
     stone_[Empty] = tank::CircleShape(0);
     stone_[Black].setFillColor({});
-    std::cout << "Made it through" << std::endl;
 }
 
 void Board::onAdded()
@@ -63,7 +59,6 @@ void Board::onClick()
     };
 
     grid_[tilePos] = White;
-    std::cout << "Set " << tilePos << " to White" << std::endl;
 }
 
 void Board::update()
@@ -75,16 +70,16 @@ void Board::update()
     isIn_ = false;
 }
 
-void Board::draw(tank::Camera const& c)
+void Board::draw(tank::Camera const& camera)
 {
-    tank::Entity::draw(c);
+    tank::Entity::draw(camera);
 
     tank::Vectoru pos {0,0};
     const auto ss = stoneSize;
     for (; pos.y < grid_.getHeight(); ++pos.y) {
         for (; pos.x < grid_.getWidth(); ++pos.x) {
-            //std::cout << pos .x << ", " << pos.y << std::endl;
-            stone_[grid_[pos]].draw(pos*ss + getPos(),0,{},c);
+            //draw the appropriate stone flyweight
+            stone_[grid_[pos]].draw(pos*ss + getPos(), 0, {}, camera);
         }
         pos.x = 0;
     }
