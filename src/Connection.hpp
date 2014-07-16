@@ -27,9 +27,9 @@ public:
 
     void connect(std::string hostname, std::string service);
     void write(std::string str);
+    void async_write(std::string str);
     std::string read_some();
-    void async_read_some(std::function<void(Connection* c,
-                                            boost::system::error_code const&,
+    void async_read_some(std::function<void(boost::system::error_code const&,
                                             size_t bytes)>);
 
     boost::array<char, bufSize> const& readBuffer() { return readBuf_; }

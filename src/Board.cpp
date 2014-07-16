@@ -1,17 +1,14 @@
 #include "Board.hpp"
 
-#include <iostream>
 #include <cmath>
-#include <boost/lexical_cast.hpp>
 #include <Tank/System/Mouse.hpp>
 #include <Tank/Graphics/RectangleShape.hpp>
 #include "Mutex.hpp"
 
 Board::Board(Connection& c, unsigned size)
   : tank::Entity({40,40})
-  , c_(c)
+  , connection_(c)
   , grid_(tank::Vectoru{size,size}, Empty)
-  //, size_(size)
 {
     using tank::RectangleShape;
 
@@ -78,8 +75,7 @@ void Board::onRelease()
     s.push_back(tilePos.x);
     s.push_back(tilePos.y);
     s.push_back(player);
-    c_.write(s);
-    std::cout << "Writing stone from placement" << std::endl;
+    connection_.write(s);
     /*
     mutex.lock();
     setStone(tilePos, static_cast<Stone>(currentPlayer));
@@ -113,7 +109,6 @@ void Board::setStone(tank::Vectoru pos, Stone s)
         throw std::invalid_argument("Stone placed outside of board");
     }
     grid_[pos] = s;
-    std::cout << "Set stone " << s << " at " << pos << std::endl;
 }
 
 void Board::draw(tank::Camera const& camera)

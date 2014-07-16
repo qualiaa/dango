@@ -1,8 +1,8 @@
 #ifndef BOARD_HPP
 #define BOARD_HPP
 
-#include <Tank/System/Entity.hpp>
 #include <array>
+#include <Tank/System/Entity.hpp>
 #include <Tank/Utility/Grid.hpp>
 #include <Tank/Graphics/CircleShape.hpp>
 #include "Connection.hpp"
@@ -19,7 +19,7 @@ public:
     static constexpr unsigned stoneSize = 19;
 
 private:
-    Connection& c_;
+    Connection& connection_;
 
     tank::Grid<Stone> grid_;
     tank::observing_ptr<tank::CircleShape> cursor_;

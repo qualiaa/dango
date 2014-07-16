@@ -16,21 +16,17 @@ void Connection::connect(std::string hostname, std::string service)
     if (error) {
         throw boost::system::system_error(error);
     }
-
-    // Read welcome message
-    std::cout << read_some();
 }
 
 void Connection::async_read_some(
-        std::function<void(Connection *c,
-                           boost::system::error_code const&,
+        std::function<void(boost::system::error_code const&,
                            size_t bytes)> handler)
 {
-    socket_.async_read_some(boost::asio::buffer(readBuf_, bufSize), 
-                            std::bind(handler, 
-                                      this, 
-                                      std::placeholders::_1, 
-                                      std::placeholders::_2));
+    socket_.async_read_some(boost::asio::buffer(readBuf_, bufSize), handler);
+}
+
+void Connection::async_write(std::string str)
+{
 }
 
 void Connection::write(std::string str)

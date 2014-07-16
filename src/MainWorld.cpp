@@ -11,13 +11,18 @@ MainWorld::MainWorld()
 {
     try {
         c.connect("127.1","8124");
-        c.async_read_some(std::bind(&MainWorld::connectionHandler, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+        c.async_read_some(std::bind(&MainWorld::connectionHandler,
+                                    this,
+                                    &c,
+                                    std::placeholders::_1,
+                                    std::placeholders::_2));
         board_ = makeEntity<Board>(c);
 
         connectionThread_ = std::thread(&MainWorld::threadFunc, this);
         connectionThread_.detach();
     }
     catch (std::exception const& e) {
+        std::cerr << "Exception while creating MainWorld: ";
         std::cerr << e.what() << std::endl;
         std::cerr << "Closing prematurely" << std::endl;
         tank::Game::stop();
@@ -31,7 +36,7 @@ MainWorld::~MainWorld()
         io_->stop();
     }
     catch (std::exception const& e) {
-        std::cerr << "Exception caught while closing MainWorld: "
+        std::cerr << "Exception while closing MainWorld: "
                         << e.what() << std::endl;
     }
 
@@ -118,7 +123,7 @@ void MainWorld::connectionHandler(Connection *c,
 
     c->async_read_some(std::bind(&MainWorld::connectionHandler,
                                          this,
+                                         c,
                                          std::placeholders::_1,
-                                         std::placeholders::_2,
-                                         std::placeholders::_3));
+                                         std::placeholders::_2));
 }
