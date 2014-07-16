@@ -2,11 +2,14 @@
 
 #include <iostream>
 #include <cmath>
+#include <boost/lexical_cast.hpp>
 #include <Tank/System/Mouse.hpp>
 #include <Tank/Graphics/RectangleShape.hpp>
+#include "Mutex.hpp"
 
-Board::Board(unsigned size)
+Board::Board(Connection& c, unsigned size)
   : tank::Entity({40,40})
+  , c_(c)
   , grid_(tank::Vectoru{size,size}, Empty)
   //, size_(size)
 {
@@ -26,6 +29,7 @@ Board::Board(unsigned size)
 
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
     cursor_->setFillColor({0,0,0,40});
+    hideCursor();
 
     stone_[White] = tank::CircleShape(stoneRadius);
     stone_[Black] = tank::CircleShape(stoneRadius);
@@ -63,21 +67,34 @@ void Board::onRelease()
     using M = tank::Mouse;
     auto mPos = M::getPos() - getPos();
 
-    tank::Vectoru tilePos = {
-        static_cast<unsigned>(std::floor((mPos.x) / stoneSize)),
-        static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
+    tank::Vector<char> tilePos = {
+        static_cast<char>(std::floor((mPos.x) / stoneSize)),
+        static_cast<char>(std::floor((mPos.y) / stoneSize))
     };
 
-    grid_[tilePos] = static_cast<Stone>(currentPlayer);
-    currentPlayer = not currentPlayer;
+    char player = currentPlayer_ == Black ? 'b' : 'w';
+    std::string s;
+    s.push_back('s');
+    s.push_back(tilePos.x);
+    s.push_back(tilePos.y);
+    s.push_back(player);
+    c_.write(s);
+    std::cout << "Writing stone from placement" << std::endl;
+    /*
+    mutex.lock();
+    setStone(tilePos, static_cast<Stone>(currentPlayer));
+    mutex.unlock();
+    */
 
-    uint8_t c = currentPlayer * 255;
+    currentPlayer_ = not currentPlayer_;
+
+    uint8_t c = currentPlayer_ * 255;
     cursor_->setFillColor({c,c,c,40});
 }
 
 void Board::onClick()
 {
-    uint8_t c = currentPlayer * 255;
+    uint8_t c = currentPlayer_ * 255;
     cursor_->setFillColor({c,c,c,100});
 }
 
@@ -90,19 +107,30 @@ void Board::update()
     isIn_ = false;
 }
 
+void Board::setStone(tank::Vectoru pos, Stone s)
+{
+    if (pos.x > grid_.getWidth() or pos.y > grid_.getHeight()) {
+        throw std::invalid_argument("Stone placed outside of board");
+    }
+    grid_[pos] = s;
+    std::cout << "Set stone " << s << " at " << pos << std::endl;
+}
+
 void Board::draw(tank::Camera const& camera)
 {
     tank::Entity::draw(camera);
 
-    tank::Vectoru pos {0,0};
+    tank::Vectoru pos;
     const auto ss = stoneSize;
-    for (; pos.y < grid_.getHeight(); ++pos.y) {
-        for (; pos.x < grid_.getWidth(); ++pos.x) {
-            //draw the appropriate stone flyweight
+
+    mutex.lock();
+    for (pos.y = 0; pos.y < grid_.getHeight(); ++pos.y) {
+        for (pos.x = 0; pos.x < grid_.getWidth(); ++pos.x) {
+            //draw the appropriate stone flyweight at pos
             stone_[grid_[pos]].draw(pos*ss + getPos(), 0, {}, camera);
         }
-        pos.x = 0;
     }
+    mutex.unlock();
 }
 
 void Board::hideCursor()
