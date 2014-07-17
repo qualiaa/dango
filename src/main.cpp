@@ -6,6 +6,7 @@ int main()
 {
     using namespace tank;
     Game::initialize({640,480});
+    Game::window()->setCaption("dango");
     Game::makeWorld<StartWorld>();
     Game::run();
 }
