@@ -1,9 +1,12 @@
 #include "MainWorld.hpp"
 
 #include <functional>
+#include <istream>
 #include <boost/system/system_error.hpp>
 #include <Tank/System/Game.hpp>
 #include "Mutex.hpp"
+
+const std::string MainWorld::messageDelim {"\r\n"};
 
 MainWorld::MainWorld()
     : io_(new boost::asio::io_service)
@@ -11,11 +14,12 @@ MainWorld::MainWorld()
 {
     try {
         c.connect("127.1","8124");
-        c.async_read_some(std::bind(&MainWorld::connectionHandler,
-                                    this,
-                                    &c,
-                                    std::placeholders::_1,
-                                    std::placeholders::_2));
+        c.async_read_until(messageDelim,
+                           std::bind(&MainWorld::connectionHandler,
+                                     this,
+                                     &c,
+                                     std::placeholders::_1,
+                                     std::placeholders::_2));
         board_ = makeEntity<Board>(c);
 
         connectionThread_ = std::thread(&MainWorld::threadFunc, this);
@@ -51,17 +55,26 @@ void MainWorld::threadFunc()
     std::cout << "[" << std::this_thread::get_id() << "] Thread starting" << std::endl;
     mutex.unlock();
 
-    while (true)
-    try {
-        boost::system::error_code ec;
-        io_->run(ec);
-        if (ec) {
-            std::cerr << "Error: " << ec << std::endl;
+    while (true) {
+        try {
+            mutex.lock();
+            std::cerr << "[" << std::this_thread::get_id() << "] ";
+            std::cerr << "Doing work" << std::endl;
+            mutex.unlock();
+            boost::system::error_code ec;
+            io_->run(ec);
+            if (ec) {
+                mutex.lock();
+                std::cerr << "[" << std::this_thread::get_id() << "] ";
+                std::cerr << "Error: " << ec << std::endl;
+                mutex.unlock();
+            }
+            break;
         }
-        break;
-    }
-    catch (std::exception const& e) {
-        std::cerr << e.what() << std::endl;
+        catch (std::exception const& e) {
+            std::cerr << "[" << std::this_thread::get_id() << "] ";
+            std::cerr << "Exception: " << e.what() << std::endl;
+        }
     }
 
     mutex.lock();
@@ -74,7 +87,61 @@ void MainWorld::connectionHandler(Connection *c,
                                   boost::system::error_code const& ec,
                                   size_t bytes)
 {
-    auto const& rb = c->readBuffer();
+    if (!ec) {
+        mutex.lock();
+
+        std::istream is {c->streamBuffer()};
+        std::string s;
+        std::getline(is, s);
+
+        std::cout << "Handling input of size " << bytes << std::endl;
+        std::cout << "string size" << s.size() << std::endl;
+
+        // TODO Error checking
+        switch (s[0]) {
+        case 't': //change turn
+            std::cout << "Switching turn" << std::endl;
+            currentTurn_ = not currentTurn_;
+            break;
+        case 'c': //connection response
+            std::cout << "Connection accepted" << std::endl;
+            switch (s[1]) {
+            case 'w': player_ = White; break;
+            case 'b': player_ = Black; break;
+            default:
+                break;
+            }
+        case 's': {//set stone
+            tank::Vectoru pos {s[1] - 0x3F, s[2] - 0x3F};
+            std::cout << "Stone write" << pos << std::endl;
+            try {
+                switch (s[3]) {
+                case 'w': board_->setStone(pos, White); break;
+                case 'b': board_->setStone(pos, Black); break;
+                case 'e': board_->setStone(pos, Empty); break;
+                default:
+                    std::cerr << "Error: unexpected data" << std::endl;
+                    break;
+                }
+            }
+            catch (std::exception const& e) {
+                std::cerr << "Exception: " << e.what() << std::endl;
+            }
+            break;
+        }
+        default:
+            std::cerr << "Error: unexpected header: "
+                      << static_cast<unsigned>(s[0]) << std::endl;
+            break;
+        }
+
+        mutex.unlock();
+    } else {
+        std::cerr << "Error: " << ec << std::endl;
+    }
+
+    /*
+    auto rb = c->readBuffer();
 
     if (ec) {
         std::cerr << "Error: " << ec << std::endl;
@@ -83,16 +150,16 @@ void MainWorld::connectionHandler(Connection *c,
 
 
     mutex.lock();
-    std::cout << "Handling input: ";
-    std::cout.write(rb.data(),bytes);
-    std::cout << std::endl;
-    mutex.unlock();
+    std::cout << "Handling input of size " << bytes << std::endl;
 
     // TODO Error checking
     switch (rb[0]) {
     case 't': //change turn
+        std::cout << "Switching turn" << std::endl;
         currentTurn_ = not currentTurn_;
-    case 'c': //connection
+        break;
+    case 'c': //connection response
+        std::cout << "Connection accepted" << std::endl;
         switch (rb[1]) {
         case 'w': player_ = White; break;
         case 'b': player_ = Black; break;
@@ -100,30 +167,32 @@ void MainWorld::connectionHandler(Connection *c,
             break;
         }
     case 's': //set stone
-        mutex.lock();
         {
         tank::Vectoru pos {rb[1], rb[2]};
-        std::cout << "\nWriting stone to " << pos << std::endl;
+        std::cout << "Stone write" << pos << std::endl;
         switch (rb[3]) {
-        case 'w': board_->setStone(pos, White); std::cout << "White"; break;
-        case 'b': board_->setStone(pos, Black); std::cout << "Black"; break;
-        case 'e': board_->setStone(pos, Empty); std::cout << "Empty"; break;
+        case 'w': board_->setStone(pos, White); break;
+        case 'b': board_->setStone(pos, Black); break;
+        case 'e': board_->setStone(pos, Empty); break;
         default:
             std::cerr << "Error: unexpected data" << std::endl;
             break;
         }
         }
         std::cout << std::endl;
-        mutex.unlock();
         break;
     default:
         std::cerr << "Error: unexpected header" << std::endl;
         break;
     }
 
-    c->async_read_some(std::bind(&MainWorld::connectionHandler,
-                                         this,
-                                         c,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2));
+    mutex.unlock();
+    */
+
+    c->async_read_until(messageDelim,
+                        std::bind(&MainWorld::connectionHandler,
+                                  this,
+                                  c,
+                                  std::placeholders::_1,
+                                  std::placeholders::_2));
 }

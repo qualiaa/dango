@@ -64,18 +64,17 @@ void Board::onRelease()
     using M = tank::Mouse;
     auto mPos = M::getPos() - getPos();
 
-    tank::Vector<char> tilePos = {
-        static_cast<char>(std::floor((mPos.x) / stoneSize)),
-        static_cast<char>(std::floor((mPos.y) / stoneSize))
+    tank::Vector<unsigned> tilePos = {
+        static_cast<unsigned>(std::floor((mPos.x) / stoneSize)),
+        static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
     };
 
     char player = currentPlayer_ == Black ? 'b' : 'w';
-    std::string s;
-    s.push_back('s');
-    s.push_back(tilePos.x);
-    s.push_back(tilePos.y);
-    s.push_back(player);
-    connection_.write(s);
+    boost::array<char, sizeof(tilePos) + 2> data;
+    data[0] = 's';
+    data[1] = player;
+    std::memcpy(&data[2],  &tilePos, sizeof(tilePos));
+    connection_.write(data, data.size());
     /*
     mutex.lock();
     setStone(tilePos, static_cast<Stone>(currentPlayer));

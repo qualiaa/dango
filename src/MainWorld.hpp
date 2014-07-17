@@ -9,6 +9,9 @@
 
 class MainWorld : public tank::World
 {
+public:
+    static const std::string messageDelim;
+private:
     std::shared_ptr<boost::asio::io_service> io_;
     Connection c;
     std::thread connectionThread_;

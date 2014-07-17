@@ -18,6 +18,17 @@ void Connection::connect(std::string hostname, std::string service)
     }
 }
 
+void Connection::async_read_until(
+        std::string const& delim,
+        std::function<void(boost::system::error_code const&,
+                           size_t bytes)> handler)
+{
+    boost::asio::async_read_until(socket_,
+                                  streamBuf_,
+                                  delim,
+                                  handler);
+}
+
 void Connection::async_read_some(
         std::function<void(boost::system::error_code const&,
                            size_t bytes)> handler)
@@ -29,17 +40,11 @@ void Connection::async_write(std::string str)
 {
 }
 
-void Connection::write(std::string str)
-{
-    boost::asio::write(socket_,
-            boost::asio::buffer(str, str.length()));
-}
-
 std::string Connection::read_some()
 {
     boost::system::error_code error;
 
-    boost::array<char, 128> buf;
+    boost::array<char, bufSize> buf;
     size_t len = socket_.read_some(boost::asio::buffer(buf), error);
 
     if (error) {
