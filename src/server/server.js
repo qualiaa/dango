@@ -80,6 +80,7 @@ function sendMessage(client, header, data)
 {
     let message = header + data + "\r\n";
 
+    console.log("Sending",client.id,message);
     client.write(message);
 }
 
@@ -93,11 +94,13 @@ function sendAll(header, data)
 function sendBoard(client) {
     for (let i = 0; i < boardSize; ++i) {
         for (let j = 0; j < boardSize; ++j) {
-            let data = String.fromCharCode(i + 0x3F);
-            data    += String.fromCharCode(j + 0x3F);
-            data    += board[i][j];
+            let data = new Buffer(12, "hex");
+            data.write('s' + board[i][j], 0, 2, "ascii")
+            data.writeUInt32LE(i, 2);
+            data.writeUInt32LE(j, 6);
+            data.write("\r\n", 10, 2, "ascii");
 
-            sendMessage(client, SET, data);
+            client.write(data);
         }
     }
 }

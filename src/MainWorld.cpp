@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <istream>
+#include <vector>
 #include <boost/system/system_error.hpp>
 #include <Tank/System/Game.hpp>
 #include "Mutex.hpp"
@@ -91,36 +92,42 @@ void MainWorld::connectionHandler(Connection *c,
         mutex.lock();
 
         std::istream is {c->streamBuffer()};
-        std::string s;
-        std::getline(is, s);
+        std::vector<uint8_t> data(bytes);
+        is.read(reinterpret_cast<char*>(&data[0]), bytes);
+        for (auto byte : data) {
+            std::cout << std::hex << static_cast<unsigned>(byte) << " ";
+        }
+        std::cout << std::dec <<  std::endl;
 
         std::cout << "Handling input of size " << bytes << std::endl;
-        std::cout << "string size" << s.size() << std::endl;
 
         // TODO Error checking
-        switch (s[0]) {
+        switch (data[0]) {
         case 't': //change turn
             std::cout << "Switching turn" << std::endl;
             currentTurn_ = not currentTurn_;
             break;
         case 'c': //connection response
             std::cout << "Connection accepted" << std::endl;
-            switch (s[1]) {
+            switch (data[1]) {
             case 'w': player_ = White; break;
             case 'b': player_ = Black; break;
             default:
                 break;
             }
         case 's': {//set stone
-            tank::Vectoru pos {s[1] - 0x3F, s[2] - 0x3F};
-            std::cout << "Stone write" << pos << std::endl;
+            if (bytes - 2 < sizeof(char)*2 + sizeof(tank::Vectoru)) {
+                std::cerr << "SET: unexpected number of bytes" << std::endl;
+            }
+            tank::Vectoru pos;
+            std::memcpy(&pos, &data[2], sizeof(pos));
             try {
-                switch (s[3]) {
+                switch (data[1]) {
                 case 'w': board_->setStone(pos, White); break;
                 case 'b': board_->setStone(pos, Black); break;
                 case 'e': board_->setStone(pos, Empty); break;
                 default:
-                    std::cerr << "Error: unexpected data" << std::endl;
+                    std::cerr << "SET: unexpected data" << std::endl;
                     break;
                 }
             }
@@ -131,7 +138,7 @@ void MainWorld::connectionHandler(Connection *c,
         }
         default:
             std::cerr << "Error: unexpected header: "
-                      << static_cast<unsigned>(s[0]) << std::endl;
+                            << static_cast<unsigned>(data[0]) << std::endl;
             break;
         }
 
