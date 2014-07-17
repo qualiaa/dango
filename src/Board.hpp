@@ -16,6 +16,7 @@ enum Stone {
 class Board : public tank::Entity
 {
 public:
+    static constexpr unsigned border = 40;
     static constexpr unsigned stoneSize = 19;
 
 private:
@@ -24,7 +25,6 @@ private:
     tank::Grid<Stone> grid_;
     tank::observing_ptr<tank::CircleShape> cursor_;
     std::array<tank::CircleShape, 3> stone_;
-    bool currentPlayer_ {Black};
 
     bool isIn_ {false}, wasIn_ {false};
 
@@ -38,6 +38,7 @@ public:
     void onRelease();
 
     void setStone(tank::Vectoru, Stone);
+    void setCursor(Stone);
 
     Board(Connection& c, unsigned size = 19);
 

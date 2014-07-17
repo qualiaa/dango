@@ -6,7 +6,7 @@
 #include "Mutex.hpp"
 
 Board::Board(Connection& c, unsigned size)
-  : tank::Entity({40,40})
+  : tank::Entity({border,border})
   , connection_(c)
   , grid_(tank::Vectoru{size,size}, Empty)
 {
@@ -25,7 +25,6 @@ Board::Board(Connection& c, unsigned size)
     }
 
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
-    cursor_->setFillColor({0,0,0,40});
     hideCursor();
 
     stone_[White] = tank::CircleShape(stoneRadius);
@@ -69,28 +68,21 @@ void Board::onRelease()
         static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
     };
 
-    char player = currentPlayer_ == Black ? 'b' : 'w';
-    boost::array<char, sizeof(tilePos) + 2> data;
+    boost::array<char, sizeof(tilePos) + 1> data;
     data[0] = 's';
-    data[1] = player;
-    std::memcpy(&data[2],  &tilePos, sizeof(tilePos));
+    std::memcpy(&data[1],  &tilePos, sizeof(tilePos));
     connection_.write(data, data.size());
-    /*
-    mutex.lock();
-    setStone(tilePos, static_cast<Stone>(currentPlayer));
-    mutex.unlock();
-    */
 
-    currentPlayer_ = not currentPlayer_;
-
-    uint8_t c = currentPlayer_ * 255;
-    cursor_->setFillColor({c,c,c,40});
+    auto c = cursor_->getFillColor();
+    c.a = 40;
+    cursor_->setFillColor(c);
 }
 
 void Board::onClick()
 {
-    uint8_t c = currentPlayer_ * 255;
-    cursor_->setFillColor({c,c,c,100});
+    auto c = cursor_->getFillColor();
+    c.a = 100;
+    cursor_->setFillColor(c);
 }
 
 void Board::update()
@@ -125,6 +117,18 @@ void Board::draw(tank::Camera const& camera)
         }
     }
     mutex.unlock();
+}
+
+void Board::setCursor(Stone s)
+{
+    cursor_->setVisibile(true);
+    if (s == Black) {
+        cursor_->setFillColor({0,0,0,40});
+    } else if (s == White) {
+        cursor_->setFillColor({255,255,255, 40});
+    } else {
+        cursor_->setVisibile(false);
+    }
 }
 
 void Board::hideCursor()
