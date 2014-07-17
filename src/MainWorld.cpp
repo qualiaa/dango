@@ -92,32 +92,48 @@ void MainWorld::connectionHandler(Connection *c,
         mutex.lock();
 
         std::istream is {c->streamBuffer()};
-        std::vector<uint8_t> data(bytes);
-        is.read(reinterpret_cast<char*>(&data[0]), bytes);
-        for (auto byte : data) {
-            std::cout << std::hex << static_cast<unsigned>(byte) << " ";
-        }
-        std::cout << std::dec <<  std::endl;
+        std::vector<char> data(bytes);
+        is.read(&data[0], bytes);
+        const size_t messageSize = bytes - 2;
 
-        std::cout << "Handling input of size " << bytes << std::endl;
+        // print data
+        std::cout << "Handling " << bytes << " bytes: <" << std::hex;
+        for (auto byte : data) {
+            std::cout << static_cast<unsigned>(byte) << " ";
+        }
+        std::cout << ">" << std::dec <<  std::endl;
 
         // TODO Error checking
         switch (data[0]) {
-        case 't': //change turn
-            std::cout << "Switching turn" << std::endl;
-            currentTurn_ = not currentTurn_;
-            break;
-        case 'c': //connection response
-            std::cout << "Connection accepted" << std::endl;
+        case 'p': //player assignment
+            std::cout << "Assigned as player" << std::endl;
             switch (data[1]) {
             case 'w': player_ = White; break;
             case 'b': player_ = Black; break;
             default:
                 break;
             }
+            board_->setCursor(player_);
+            break;
+        case 'b': {//board
+            if (messageSize != sizeof(unsigned) + 1) {
+                std::cerr << "BOARD: unexpected number of bytes" << std::endl;
+                break;
+            }
+            const unsigned size = *(&data[1]);
+            board_->remove();
+            board_ = makeEntity<Board>(*c, size);
+            board_->setCursor(player_);
+            break;
+        }
+        case 't': //change turn
+            std::cout << "Switching turn" << std::endl;
+            currentTurn_ = not currentTurn_;
+            break;
         case 's': {//set stone
-            if (bytes - 2 < sizeof(char)*2 + sizeof(tank::Vectoru)) {
+            if (messageSize != sizeof(char)*2 + sizeof(tank::Vectoru)) {
                 std::cerr << "SET: unexpected number of bytes" << std::endl;
+                break;
             }
             tank::Vectoru pos;
             std::memcpy(&pos, &data[2], sizeof(pos));
@@ -146,55 +162,6 @@ void MainWorld::connectionHandler(Connection *c,
     } else {
         std::cerr << "Error: " << ec << std::endl;
     }
-
-    /*
-    auto rb = c->readBuffer();
-
-    if (ec) {
-        std::cerr << "Error: " << ec << std::endl;
-        return;
-    }
-
-
-    mutex.lock();
-    std::cout << "Handling input of size " << bytes << std::endl;
-
-    // TODO Error checking
-    switch (rb[0]) {
-    case 't': //change turn
-        std::cout << "Switching turn" << std::endl;
-        currentTurn_ = not currentTurn_;
-        break;
-    case 'c': //connection response
-        std::cout << "Connection accepted" << std::endl;
-        switch (rb[1]) {
-        case 'w': player_ = White; break;
-        case 'b': player_ = Black; break;
-        default:
-            break;
-        }
-    case 's': //set stone
-        {
-        tank::Vectoru pos {rb[1], rb[2]};
-        std::cout << "Stone write" << pos << std::endl;
-        switch (rb[3]) {
-        case 'w': board_->setStone(pos, White); break;
-        case 'b': board_->setStone(pos, Black); break;
-        case 'e': board_->setStone(pos, Empty); break;
-        default:
-            std::cerr << "Error: unexpected data" << std::endl;
-            break;
-        }
-        }
-        std::cout << std::endl;
-        break;
-    default:
-        std::cerr << "Error: unexpected header" << std::endl;
-        break;
-    }
-
-    mutex.unlock();
-    */
 
     c->async_read_until(messageDelim,
                         std::bind(&MainWorld::connectionHandler,
