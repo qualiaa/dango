@@ -16,21 +16,24 @@ class Input : public tank::Entity
     tank::Color focus {100,100,100};
     tank::Color hover {200,200,200};
 
+    std::string input_;
+
 public:
     virtual void onAdded() override;
     virtual void update() override;
     //virtual void draw(tank::Camera const&) override;
 
     void setLabel(std::string label);
+    std::string getLabel() const { return label_->getText(); }
     void setFontSize(unsigned);
-    unsigned getFontSize();
+    unsigned getFontSize() const { return label_->getFontSize(); }
 
-    void mouseOver();
-    void onClick();
     void onRelease();
 
     void gainFocus();
     void loseFocus();
+
+    bool hasFocus() const { return hasFocus_; }
 
     Input(tank::Vectorf, tank::Vectoru size, std::string label = "");
 

@@ -9,28 +9,25 @@ Input::Input(tank::Vectorf pos, tank::Vectoru size, std::string label)
 {
     box_ = makeGraphic<tank::RectangleShape>(size);
     text_ = makeGraphic<tank::Text>(StartWorld::font);
-    label_ = makeGraphic<tank::Text>(StartWorld::font);
+    label_ = makeGraphic<tank::Text>(StartWorld::titleFont);
 
+    text_->setColor({});
+    text_->setOrigin({-5, 2});
     box_->setOutlineColor({200,200,200});
-    setFontSize(size.y);
+    setFontSize(size.y - 2);
     setLabel(label);
 }
 
 void Input::setLabel(std::string label)
 {
     label_->setText(label);
-    label_->setOrigin({label_->getSize().x, 0});
+    label_->setOrigin({label_->getSize().x + 5, 2});
 }
 
 void Input::setFontSize(unsigned s)
 {
     label_->setFontSize(s);
     text_->setFontSize(s);
-}
-
-unsigned Input::getFontSize()
-{
-    return label_->getFontSize();
 }
 
 void Input::onAdded()
@@ -58,11 +55,6 @@ void Input::update()
     }
 }
 
-void Input::mouseOver()
-{
-    box_->setFillColor(hover);
-}
-
 //void Input::mouseOut()
 //{
     //box_->setFillColor({200,200,200});
@@ -75,9 +67,27 @@ void Input::onRelease()
 
 void Input::handleInput()
 {
-    std::string s;
-    tank::Game::keystream >> s;
-    std::cout << s << std::endl;
+    // FIXME: This assumes ASCII -> is not portable
+    char c;
+    while (tank::Game::keystream >> c) {
+        try {
+            if (c < 0x20 or c >= 0x7F) { // Outside display char range
+                switch (c) {
+                    case 0x7F: // Del
+                    case 0x08: // Backspace
+                        input_.pop_back();
+                        break;
+                    default:
+                        std::cout << static_cast<unsigned>(c) << std::endl;
+                }
+            } else {
+                input_.push_back(c);
+            }
+        }
+        catch (std::out_of_range const& e) { }
+    }
+
+    text_->setText(input_);
     tank::Game::keystream.str("");
     tank::Game::keystream.clear();
 }
@@ -86,7 +96,11 @@ void Input::checkFocus()
 {
     using M = tank::Mouse;
     if (M::isInEntity(*this)) {
-        gainFocus();
+        if (not hasFocus_) {
+            gainFocus();
+        } else {
+            loseFocus();
+        }
     } else {
         loseFocus();
     }
@@ -103,6 +117,8 @@ void Input::gainFocus()
 
 void Input::loseFocus()
 {
+    tank::Game::keystream.str("");
+    tank::Game::keystream.clear();
     hasFocus_ = false;;
     box_->setFillColor(normal);
     box_->setOutlineThickness(0);

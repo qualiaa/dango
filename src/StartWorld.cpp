@@ -17,5 +17,6 @@ StartWorld::StartWorld()
     title->setOrigin(title->getSize() / 2);
     title->setPos(tank::Vectorf(tank::Game::window()->getSize().x / 2, 50));
 
-    makeEntity<Input>(tank::Vectorf{300,400}, tank::Vectoru{200,20}, "TestInput");
+    makeEntity<Input>(tank::Vectorf{250,300}, tank::Vectoru{200,16}, "Hostname:");
+    makeEntity<Input>(tank::Vectorf{250,330}, tank::Vectoru{200,16}, "Port:");
 }
