@@ -18,6 +18,11 @@ Input::Input(tank::Vectorf pos, tank::Vectoru size, std::string label)
     setLabel(label);
 }
 
+void Input::setText(std::string text) {
+    text_->setText(text);
+    input_ = text;
+}
+
 void Input::setLabel(std::string label)
 {
     label_->setText(label);
@@ -73,12 +78,25 @@ void Input::handleInput()
         try {
             if (c < 0x20 or c >= 0x7F) { // Outside display char range
                 switch (c) {
-                    case 0x7F: // Del
-                    case 0x08: // Backspace
+                    case 0x15: // CTRL + w //TODO: "delete word"
+                    case 0x17: // CTRL + u
+                        input_.clear();
+                        break;
+                    case 0x1B: // ESC
+                        loseFocus();
+                        break;
+                    case 0x08: // BS / CTRL + h
+                        if (tank::Keyboard::control() and
+                            tank::Keyboard::isKeyDown(tank::Key::BackSpace)) {
+                            input_.clear(); // TODO: "delete word"
+                            break;
+                        }
+                    case 0x7F: // DEL
                         input_.pop_back();
                         break;
                     default:
                         std::cout << static_cast<unsigned>(c) << std::endl;
+                        break;
                 }
             } else {
                 input_.push_back(c);

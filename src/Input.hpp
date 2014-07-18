@@ -5,6 +5,10 @@
 #include <Tank/Graphics/Text.hpp>
 #include <Tank/Graphics/RectangleShape.hpp>
 
+// TODO: Template this for typed input
+// TODO: Allow writing to reference
+// TODO: Restricted charsets
+// TODO: Cursor
 class Input : public tank::Entity
 {
     bool hasFocus_ {false};
@@ -23,6 +27,8 @@ public:
     virtual void update() override;
     //virtual void draw(tank::Camera const&) override;
 
+    void setText(std::string text);
+    std::string getText() const{ return text_->getText(); }
     void setLabel(std::string label);
     std::string getLabel() const { return label_->getText(); }
     void setFontSize(unsigned);
@@ -32,7 +38,6 @@ public:
 
     void gainFocus();
     void loseFocus();
-
     bool hasFocus() const { return hasFocus_; }
 
     Input(tank::Vectorf, tank::Vectoru size, std::string label = "");
