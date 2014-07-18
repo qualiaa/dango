@@ -3,17 +3,16 @@
 
 #include <Tank/System/World.hpp>
 #include <Tank/System/Game.hpp>
+#include <Tank/Graphics/Font.hpp>
 #include "MainWorld.hpp"
 
 class StartWorld : public tank::World
 {
 public:
-    virtual void update() override
-    {
-        tank::Game::log << "calling popWorld" << std::endl;
-        tank::Game::popWorld();
-        tank::Game::makeWorld<MainWorld>();
-    }
+    static tank::Font font;
+    static tank::Font titleFont;
+public:
+    StartWorld();
 };
 
 #endif

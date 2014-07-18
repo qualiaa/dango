@@ -24,4 +24,4 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 endif()
 
 add_subdirectory(src)
-#file(COPY "res" DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY "res" DESTINATION ${CMAKE_BINARY_DIR})
