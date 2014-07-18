@@ -1,11 +1,13 @@
 var net = require("net");
 
+const MAX_BOARD_SIZE = 100;
+const DEFAULT_BOARD_SIZE = 19;
 //TODO: check args
 var boardSize;
-if (process.argv[2] && process.argv[2] < 0x40) {
+if (process.argv[2] && process.argv[2] < MAX_BOARD_SIZE) {
     boardSize = process.argv[2];
 } else {
-    boardSize = 19;
+    boardSize = DEFAULT_BOARD_SIZE;
 }
 const port = process.argv[3] ? process.argv[3] : 0;
 
@@ -16,10 +18,15 @@ const PLAYER = 'p';
 const BOARD = 'b';
 var handlers = {}
 
+// Stones
+const white = 'w';
+const black = 'b';
+const empty = 'e';
+
 // Clients list and current players
 var clients = {}
 var players = {}
-var currentPlayer = 'b';
+var currentPlayer = black;
 
 // Initialize board to empty
 var board = new Array(boardSize);
@@ -27,12 +34,12 @@ var board = new Array(boardSize);
 for (let i = 0; i < boardSize; ++i) {
     board[i] = new Array(boardSize);
     for (let j = 0; j < boardSize; ++j) {
-        board[i][j] = 'e';
+        board[i][j] = empty;
     }
 }
 
 for (let i = 0; i < boardSize; ++i) {
-    board[i][i] = i % 2 ? 'w' : 'b';
+    board[i][i] = i % 2 ? white : black;
 }
 
 // Create server
@@ -73,17 +80,13 @@ server.listen(port);
 function processData(data) {
     let header = data.toString("ascii", 0, 1);
 
-    //try {
-        handlers[header](this, data.slice(1));
-    //}
-    //catch (error) {
-        //console.log(error);
-    //}
+    handlers[header](this, data.slice(1));
 }
 
 function sendMessage(client, header, data) {
     let message = header;
     if (data !== undefined) {
+        console.log(header,data);
         message += data;
     }
     message += "\r\n"
@@ -128,12 +131,12 @@ function sendBoard(client) {
 
 function assignColor(client) {
     let col = 'x';
-    if (players['b'] === undefined) {
-        players['b'] = client;
-        client.color = col = 'b';
-    } else if (players['w'] === undefined) {
-        players['w'] = client;
-        client.color = col = 'w';
+    if (players[black] === undefined) {
+        players[black] = client;
+        client.color = col = black;
+    } else if (players[white] === undefined) {
+        players[white] = client;
+        client.color = col = white;
     }
 
     sendMessage(client, PLAYER, col)
@@ -141,120 +144,130 @@ function assignColor(client) {
 
 function validMove(color, x, y) {
     if (outOfBounds(x, y)) return false;
-    //if (board[x][y] != 'e') return false; //check happens in handlers[SET]
-    if (isSafeNeighbour(color, x + 1, y) ||
-        isSafeNeighbour(color, x, y + 1) ||
-        isSafeNeighbour(color, x - 1, y) ||
-        isSafeNeighbour(color, x, y - 1))
-    {
-        console.log("Valid: safe neighbour");
-        return true;
-    }
+    if (color != currentPlayer) return false;
+    if (board[x][y] != empty) return false;
 
-    console.log("Safe if group alive")
-    return isAlive(getChain(x, y));
+    // set board for checks
+    board[x][y] = color;
+    let result = false;
+    result |= isSafeNeighbour(color, x + 1, y) ||
+              isSafeNeighbour(color, x, y + 1) ||
+              isSafeNeighbour(color, x - 1, y) ||
+              isSafeNeighbour(color, x, y - 1);
+
+    if(!result) result = isAlive(getGroup(x, y));
+    // reset board
+    board[x][y] = empty;
+    return result;
 }
 
 // is this square a safe neighbour
 function isSafeNeighbour(color, x, y) {
     if (outOfBounds(x, y)) return false;
     let stone = board[x][y];
-    if (stone == 'e') 
-    {
-        console.log("Safe: neighbour empty");
-        return true; // safe if empty
-    }
-    if (stone == color) { // not necessarily safe if forms chain
-        return false; 
-    }
-
-    console.log("Safe if neighbour dead:")
-    return !isAlive(getChain(x,y)); // safe if kills other stones
+    if (stone == empty) return true; // safe if empty
+    if (stone == color) return false; 
+    else return !isAlive(getGroup(x,y)); // safe if kills other stones
 }
 
-function getChain(x, y) {
-    let chain = [];
-    Object.defineProperty(chain, "color", { 
+function getGroup(x, y) {
+    let group = [];
+    Object.defineProperty(group, "color", { 
         value: board[x][y],
         enumerable: false,
     });
-    if (chain.color == 'e') return chain;
+    if (group.color == empty) return group;
 
-    let findInChain = function (x, y) { 
-        for (let stone in chain) {
-            let x1 = chain[stone].x;
-            let y1 = chain[stone].y;
-            let result = chain[stone].x == x && chain[stone].y == y;
-            let message = result ? "equal to" : "not equal to";
-            console.log("\t" + x + ",",y,message,x1 + ",",y1)
-            if (result) return result;
+    let findInGroup = function (x, y) { 
+        for (let stone in group) {
+            if (group[stone].x == x && group[stone].y == y) return true;
         }
         return false;
     }
-    let addToChain = function (x, y) {
-        // Naive implementation
+    // Naive search
+    let addToGroup = function (x, y) {
         if (outOfBounds(x, y)) return;
-        if (board[x][y] == chain.color) {
-            console.log("Looking for stone (" + x + ",", y + ") in chain");
-            if (!findInChain(x, y)) {
+        if (board[x][y] == group.color) {
+            if (!findInGroup(x, y)) {
                 let stone = {};
                 Object.defineProperties(stone, {
                     "x": { value: x, },
                     "y": { value: y, },
                 });
-                chain.push(stone);
-                console.log("\tNot in chain: added (" + x + ",", y + ")");
+                group.push(stone);
 
-                addToChain(x + 1, y);
-                addToChain(x, y + 1);
-                addToChain(x - 1, y);
-                addToChain(x, y - 1);
-            } else {
-                console.log("\tFound in chain: (" + x + ",", y + ")");
+                addToGroup(x + 1, y);
+                addToGroup(x, y + 1);
+                addToGroup(x - 1, y);
+                addToGroup(x, y - 1);
             }
         }
     };
-    console.log("Starting chain");
-    addToChain(x, y);
-    return chain;
+    addToGroup(x, y);
+    return group;
 }
 
-function isAlive(chain) {
-    console.log ("Checking state of",chain.length,"stones");
-    for (let stone in chain) {
-        let x = chain[stone].x;
-        let y = chain[stone].y;
-
-        console.log ("\t(" + x +",", y + ")");
+function isAlive(group) {
+    for (let stone in group) {
+        let x = group[stone].x;
+        let y = group[stone].y;
         if (isEmpty(x + 1, y) ||
             isEmpty(x, y + 1) ||
             isEmpty(x - 1, y) ||
             isEmpty(x, y - 1)) {
-            console.log ("\tAlive");
             return true;
         }
     }
-    console.log ("\tDead");
     return false;
 }
 
 function isEmpty(x, y) {
-    console.log ("\t\tChecking if(" + x +",", y + ") is empty");
     if (outOfBounds(x, y)) return false;
-
-    return board[x][y] == 'e';
+    return board[x][y] == empty;
 }
 
 function resolveMove(color, x, y) {
     board[x][y] = color;
+
+    let score = 0;
+
+    // TODO Coordinate class and neighbours()
+    score += resolveCaptures(color, x + 1, y);
+    score += resolveCaptures(color, x, y + 1);
+    score += resolveCaptures(color, x - 1, y);
+    score += resolveCaptures(color, x, y - 1);
+    console.log(score,"stones captured");
+
     forAllClients(function(client) {
         sendStone(client, x, y);
     });
 }
 
+function resolveCaptures(color, x, y) {
+    if (!outOfBounds(x, y)) {
+        let stone = board[x][y];
+        if (stone != color && stone != empty) {
+            let group = getGroup(x,y);
+            if (!isAlive(group)) {
+                for (let stone in group) {
+                    let x = group[stone].x;
+                    let y = group[stone].y;
+                    board[x][y] = empty;
+                    forAllClients(function(client) {
+                        sendStone(client, x, y);
+                    });
+                }
+                return group.length;
+            }
+        }
+    }
+    return 0;
+}
+
 function switchTurn() {
-    currentPlayer = currentPlayer == 'w' ? 'b' : 'w';
-    sendAll(TURN);
+    currentPlayer = currentPlayer == white ? black : white;
+    console.log("Switching turn:", currentPlayer);
+    sendAll(TURN, currentPlayer);
 }
 
 function outOfBounds(x, y) {
@@ -265,18 +278,15 @@ handlers[SET] = function(client, data) {
     let x = data.readUInt32LE(0);
     let y = data.readUInt32LE(4);
     let color = client.color;
-    let oldColor = board[x][y];
-    board[x][y] = color;
 
-    if (color == currentPlayer) {
-        if (oldColor == 'e' && validMove(color, x, y)) {
-            resolveMove(color, x, y);
-            switchTurn();
-        } else {
-            // tell the client the move failed
-            board[x][y] = oldColor;
-            sendStone(client, x, y);
-        }
+    if (validMove(color, x, y)) {
+        console.log("Move:","(" + x +", " + y + ")",color);
+        resolveMove(color, x, y);
+        switchTurn();
+    } else {
+        console.log("Invalid move:","(" + x +", " + y + ")",color);
+        // tell the client the move failed
+        sendStone(client, x, y);
     }
 }
 
