@@ -14,15 +14,19 @@ public:
 private:
     std::shared_ptr<boost::asio::io_service> io_;
     Connection c;
+    std::string hostname_, port_;
     std::thread connectionThread_;
 
     tank::observing_ptr<Board> board_;
     bool currentTurn_ {false};
     Stone player_ {Empty};
 
+
 public:
-    MainWorld();
+    MainWorld(std::string hostname, std::string port);
     virtual ~MainWorld();
+
+    virtual void onAdded() override;
 
     void threadFunc();
     void connectionHandler(Connection *c,

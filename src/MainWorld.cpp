@@ -9,12 +9,18 @@
 
 const std::string MainWorld::messageDelim {"\r\n"};
 
-MainWorld::MainWorld()
+MainWorld::MainWorld(std::string hostname, std::string port)
     : io_(new boost::asio::io_service)
     , c(io_)
+    , hostname_(hostname)
+    , port_(port)
+{
+}
+
+void MainWorld::onAdded()
 {
     try {
-        c.connect("127.1","8124");
+        c.connect(hostname_, port_);
         c.async_read_until(messageDelim,
                            std::bind(&MainWorld::connectionHandler,
                                      this,
@@ -30,7 +36,7 @@ MainWorld::MainWorld()
         std::cerr << "Exception while creating MainWorld: ";
         std::cerr << e.what() << std::endl;
         std::cerr << "Closing prematurely" << std::endl;
-        tank::Game::stop();
+        tank::Game::popWorld();
     }
 }
 
