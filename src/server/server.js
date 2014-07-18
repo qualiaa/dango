@@ -38,10 +38,6 @@ for (let i = 0; i < boardSize; ++i) {
     }
 }
 
-for (let i = 0; i < boardSize; ++i) {
-    board[i][i] = i % 2 ? white : black;
-}
-
 // Create server
 var server = net.createServer(function(c) {
     if (this.clientID == undefined) {
