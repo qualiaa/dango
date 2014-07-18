@@ -1,11 +1,16 @@
 #include "Input.hpp"
 
+#include <Tank/System/Game.hpp>
 #include <Tank/System/Keyboard.hpp>
 #include <Tank/System/Mouse.hpp>
 #include "StartWorld.hpp"
 
-Input::Input(tank::Vectorf pos, tank::Vectoru size, std::string label)
+Input::Input(tank::Vectorf pos,
+             tank::Vectoru size,
+             std::string label,
+             std::function<void()> callback)
     : tank::Entity(pos)
+    , callback_ {callback}
 {
     box_ = makeGraphic<tank::RectangleShape>(size);
     text_ = makeGraphic<tank::Text>(StartWorld::font);
@@ -18,7 +23,8 @@ Input::Input(tank::Vectorf pos, tank::Vectoru size, std::string label)
     setLabel(label);
 }
 
-void Input::setText(std::string text) {
+void Input::setText(std::string text)
+{
     text_->setText(text);
     input_ = text;
 }
@@ -38,23 +44,28 @@ void Input::setFontSize(unsigned s)
 void Input::onAdded()
 {
     using K = tank::Keyboard;
+    using Key = tank::Key;
     using M = tank::Mouse;
     using B = M::Button;
 
     auto haveFocus = [&]() { return hasFocus_; };
     //auto noFocus = [&]() { return not hasFocus_; };
     connect(K::KeyPress() && haveFocus, &Input::handleInput);
+    connect(K::KeyPress(Key::Return) && haveFocus,
+            [this]{ if (callback_) { callback_(); }});
     connect(M::ButtonRelease(B::Left), &Input::checkFocus);
 }
 
 void Input::update()
 {
     using M = tank::Mouse;
-    if (not hasFocus_) {
-        if (M::isInEntity(*this)) {
-            box_->setFillColor(hover);
-        }
-        else {
+    if (M::isInEntity(*this)) {
+        box_->setFillColor(hover);
+    }
+    else {
+        if (hasFocus_) {
+            box_->setFillColor(focus);
+        } else {
             box_->setFillColor(normal);
         }
     }
@@ -64,11 +75,6 @@ void Input::update()
 //{
     //box_->setFillColor({200,200,200});
 //}
-
-void Input::onRelease()
-{
-    hasFocus_ = true;
-}
 
 void Input::handleInput()
 {
@@ -126,6 +132,8 @@ void Input::checkFocus()
 
 void Input::gainFocus()
 {
+    if (hasFocus_) return;
+
     tank::Game::keystream.str("");
     tank::Game::keystream.clear();
     hasFocus_ = true;
@@ -135,6 +143,8 @@ void Input::gainFocus()
 
 void Input::loseFocus()
 {
+    if (not hasFocus_) return;
+
     tank::Game::keystream.str("");
     tank::Game::keystream.clear();
     hasFocus_ = false;;
