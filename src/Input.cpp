@@ -120,11 +120,7 @@ void Input::checkFocus()
 {
     using M = tank::Mouse;
     if (M::isInEntity(*this)) {
-        if (not hasFocus_) {
-            gainFocus();
-        } else {
-            loseFocus();
-        }
+        gainFocus();
     } else {
         loseFocus();
     }
