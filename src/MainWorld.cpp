@@ -5,13 +5,14 @@
 #include <vector>
 #include <boost/system/system_error.hpp>
 #include <Tank/System/Game.hpp>
+#include "Message.hpp"
 #include "Mutex.hpp"
 
 const std::string MainWorld::messageDelim {"\r\n"};
 
 MainWorld::MainWorld(std::string hostname, std::string port)
     : io_(new boost::asio::io_service)
-    , c(io_)
+    , connection_(io_)
     , hostname_(hostname)
     , port_(port)
 {
@@ -20,14 +21,14 @@ MainWorld::MainWorld(std::string hostname, std::string port)
 void MainWorld::onAdded()
 {
     try {
-        c.connect(hostname_, port_);
-        c.async_read_until(messageDelim,
+        connection_.connect(hostname_, port_);
+        connection_.async_read_until(messageDelim,
                            std::bind(&MainWorld::connectionHandler,
                                      this,
-                                     &c,
+                                     &connection_,
                                      std::placeholders::_1,
                                      std::placeholders::_2));
-        board_ = makeEntity<Board>(c);
+        board_ = makeEntity<Board>(connection_);
 
         connectionThread_ = std::thread(&MainWorld::threadFunc, this);
         connectionThread_.detach();
@@ -35,7 +36,7 @@ void MainWorld::onAdded()
     catch (std::exception const& e) {
         std::cerr << "Exception while creating MainWorld: ";
         std::cerr << e.what() << std::endl;
-        std::cerr << "Closing prematurely" << std::endl;
+        std::cerr << "Returning to menu" << std::endl;
         tank::Game::popWorld();
     }
 }
@@ -43,7 +44,6 @@ void MainWorld::onAdded()
 MainWorld::~MainWorld()
 {
     try {
-        boost::system::error_code ec;
         io_->stop();
     }
     catch (std::exception const& e) {
@@ -90,78 +90,73 @@ void MainWorld::threadFunc()
 
 }
 
-void MainWorld::connectionHandler(Connection *c,
+void MainWorld::connectionHandler(Connection *connection,
                                   boost::system::error_code const& ec,
                                   size_t bytes)
 {
     if (!ec) {
         mutex.lock();
 
-        std::istream is {c->streamBuffer()};
+        // Create an instream from the connection stream buffer
+        std::istream instream {connection->streamBuffer()};
+        // Create a vector to store data of size `bytes`
         std::vector<char> data(bytes);
-        is.read(&data[0], bytes);
-        const size_t messageSize = bytes - 2;
-
+        // Read the data into the vector
+        instream.read(&data[0], bytes);
         // print data
-        std::cout << "Handling " << bytes << " bytes: <" << std::hex;
+        std::cout << "Handling " << bytes << " bytes: < " << std::hex;
         for (auto byte : data) {
             std::cout << static_cast<unsigned>(byte) << " ";
         }
         std::cout << ">" << std::dec <<  std::endl;
 
+        Message message{std::move(data)};
+
         // TODO Error checking
-        switch (data[0]) {
-        case 'p': //player assignment
+        if (message.header == Message::PLAYER) {
             std::cout << "Assigned as player" << std::endl;
-            switch (data[1]) {
+            switch (message.data[0]) {
             case 'w': player_ = White; break;
             case 'b': player_ = Black; break;
             default:
                 break;
             }
             board_->setCursor(player_);
-            break;
-        case 'b': {//board
-            if (messageSize != sizeof(unsigned) + 1) {
+        } else if (message.header == Message::BOARD) {
+            if (message.data.size() != sizeof(unsigned)) {
                 std::cerr << "BOARD: unexpected number of bytes" << std::endl;
-                break;
+            } else {
+                const unsigned size = *(&message.data[0]);
+                board_->remove();
+                board_ = makeEntity<Board>(*connection, size);
+                board_->setCursor(player_);
             }
-            const unsigned size = *(&data[1]);
-            board_->remove();
-            board_ = makeEntity<Board>(*c, size);
-            board_->setCursor(player_);
-            break;
-        }
-        case 't': //change turn
+        } else if (message.header == Message::TURN) {
             std::cout << "Switching turn" << std::endl;
             currentTurn_ = not currentTurn_;
-            break;
-        case 's': {//set stone
-            if (messageSize != sizeof(char)*2 + sizeof(tank::Vectoru)) {
+        } else if (message.header == Message::SET) {
+            if (message.data.size() != sizeof(char) + sizeof(tank::Vectoru)) {
                 std::cerr << "SET: unexpected number of bytes" << std::endl;
-                break;
-            }
-            tank::Vectoru pos;
-            std::memcpy(&pos, &data[2], sizeof(pos));
-            try {
-                switch (data[1]) {
-                case 'w': board_->setStone(pos, White); break;
-                case 'b': board_->setStone(pos, Black); break;
-                case 'e': board_->setStone(pos, Empty); break;
-                default:
-                    std::cerr << "SET: unexpected data" << std::endl;
-                    break;
+            } else {
+                tank::Vectoru pos;
+                std::memcpy(&pos, &message.data[1], sizeof(pos));
+                try {
+                    switch (message.data[0]) {
+                    case 'w': board_->setStone(pos, White); break;
+                    case 'b': board_->setStone(pos, Black); break;
+                    case 'e': board_->setStone(pos, Empty); break;
+                    default:
+                        std::cerr << "SET: unexpected data" << std::endl;
+                        break;
+                    }
+                }
+                catch (std::exception const& e) {
+                    std::cerr << "Exception: " << e.what() << std::endl;
                 }
             }
-            catch (std::exception const& e) {
-                std::cerr << "Exception: " << e.what() << std::endl;
-            }
-            break;
-        }
-        default:
+        } else {
             std::cerr << "Error: unexpected header: "
-                            << static_cast<unsigned>(data[0]) << std::endl;
-            break;
+                            << message.header << std::endl;
         }
 
         mutex.unlock();
@@ -169,10 +164,10 @@ void MainWorld::connectionHandler(Connection *c,
         std::cerr << "Error: " << ec << std::endl;
     }
 
-    c->async_read_until(messageDelim,
+    connection->async_read_until(messageDelim,
                         std::bind(&MainWorld::connectionHandler,
                                   this,
-                                  c,
+                                  connection,
                                   std::placeholders::_1,
                                   std::placeholders::_2));
 }

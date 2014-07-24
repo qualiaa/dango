@@ -13,7 +13,7 @@ public:
     static const std::string messageDelim;
 private:
     std::shared_ptr<boost::asio::io_service> io_;
-    Connection c;
+    Connection connection_;
     std::string hostname_, port_;
     std::thread connectionThread_;
 
