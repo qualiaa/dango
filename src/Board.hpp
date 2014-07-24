@@ -6,12 +6,7 @@
 #include <Tank/Utility/Grid.hpp>
 #include <Tank/Graphics/CircleShape.hpp>
 #include "Connection.hpp"
-
-enum Stone {
-    Black,
-    White,
-    Empty
-};
+#include "Stone.hpp"
 
 class Board : public tank::Entity
 {
