@@ -1,21 +1,23 @@
 var net = require("net");
 
-const MAX_BOARD_SIZE = 100;
+const MAX_BOARD_SIZE     = 99;
 const DEFAULT_BOARD_SIZE = 19;
-//TODO: check args
+
 var boardSize;
 if (process.argv[2] && process.argv[2] < MAX_BOARD_SIZE) {
     boardSize = process.argv[2];
 } else {
     boardSize = DEFAULT_BOARD_SIZE;
 }
-const port = process.argv[3] ? process.argv[3] : 0;
+const port = process.argv[3] ? process.argv[3] : 8037;
 
 // Headers
-const SET = 's';
-const TURN = 't';
+const SET    = 's';
+const TURN   = 't';
 const PLAYER = 'p';
-const BOARD = 'b';
+const BOARD  = 'b';
+const SCORE  = 'c';
+const RESET  = 'r';
 var handlers = {}
 
 // Stones
@@ -26,17 +28,26 @@ const empty = 'e';
 // Clients list and current players
 var clients = {}
 var players = {}
-var currentPlayer = black;
 
-// Initialize board to empty
-var board = new Array(boardSize);
+// Game variables
+var board;
+var score = [];
+var currentPlayer;
 
-for (let i = 0; i < boardSize; ++i) {
-    board[i] = new Array(boardSize);
-    for (let j = 0; j < boardSize; ++j) {
-        board[i][j] = empty;
+function startGame() {
+    score[white] = score[black] = 0;
+    currentPlayer = black;
+
+    board = new Array(boardSize);
+    for (let i = 0; i < boardSize; ++i) {
+        board[i] = new Array(boardSize);
+        for (let j = 0; j < boardSize; ++j) {
+            board[i][j] = empty;
+        }
     }
 }
+
+startGame();
 
 // Create server
 var server = net.createServer(function(c) {
@@ -49,8 +60,10 @@ var server = net.createServer(function(c) {
     clients[c.id] = c;
 
     // send client game data
-    assignColor(c);
     sendBoard(c);
+    sendScore(c);
+    sendTurn(c);
+    assignColor(c);
 
     console.log("Client " + c.id + " connected");
 
@@ -96,7 +109,7 @@ function forAllClients(func) {
     }
 }
 
-function sendAll(header, data) {
+function sendAllClients(header, data) {
     for(let client in clients) {
         sendMessage(clients[client], header, data);
     }
@@ -125,17 +138,28 @@ function sendBoard(client) {
     }
 }
 
+function sendScore(client) {
+    let data = new Buffer(8, "hex");
+    data.writeUInt32LE(score[black], 0);
+    data.writeUInt32LE(score[white], 4);
+    sendMessage(client, SCORE, data);
+}
+
+function sendTurn(client) {
+    sendMessage(client, TURN, currentPlayer);
+}
+
 function assignColor(client) {
-    let col = 'x';
+    let color = empty;
     if (players[black] === undefined) {
         players[black] = client;
-        client.color = col = black;
+        client.color = color = black;
     } else if (players[white] === undefined) {
         players[white] = client;
-        client.color = col = white;
+        client.color = color = white;
     }
 
-    sendMessage(client, PLAYER, col)
+    sendMessage(client, PLAYER, color)
 }
 
 function validMove(color, x, y) {
@@ -225,18 +249,11 @@ function isEmpty(x, y) {
 function resolveMove(color, x, y) {
     board[x][y] = color;
 
-    let score = 0;
-
     // TODO Coordinate class and neighbours()
-    score += resolveCaptures(color, x + 1, y);
-    score += resolveCaptures(color, x, y + 1);
-    score += resolveCaptures(color, x - 1, y);
-    score += resolveCaptures(color, x, y - 1);
-    console.log(score,"stones captured");
-
-    forAllClients(function(client) {
-        sendStone(client, x, y);
-    });
+    score[color] += resolveCaptures(color, x + 1, y);
+    score[color] += resolveCaptures(color, x, y + 1);
+    score[color] += resolveCaptures(color, x - 1, y);
+    score[color] += resolveCaptures(color, x, y - 1);
 }
 
 function resolveCaptures(color, x, y) {
@@ -263,7 +280,7 @@ function resolveCaptures(color, x, y) {
 function switchTurn() {
     currentPlayer = currentPlayer == white ? black : white;
     console.log("Switching turn:", currentPlayer);
-    sendAll(TURN, currentPlayer);
+    sendAllClients(TURN, currentPlayer);
 }
 
 function outOfBounds(x, y) {
@@ -278,6 +295,11 @@ handlers[SET] = function(client, data) {
     if (validMove(color, x, y)) {
         console.log("Move:","(" + x +", " + y + ")",color);
         resolveMove(color, x, y);
+
+        forAllClients(function(client) {
+            sendStone(client, x, y);
+            sendScore(client);
+        });
         switchTurn();
     } else {
         console.log("Invalid move:","(" + x +", " + y + ")",color);
@@ -287,3 +309,10 @@ handlers[SET] = function(client, data) {
 }
 
 handlers[TURN] = switchTurn;
+
+handlers[RESET] = function () {
+    startGame();
+    forAllClients(sendBoard);
+    forAllClients(sendScore);
+    forAllClients(sendTurn);
+}
