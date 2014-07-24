@@ -20,8 +20,10 @@ Board::Board(Connection& c, unsigned size)
 
     for (unsigned i = 0; i < size; ++i) {
         const unsigned offset = i * stoneSize + stoneRadius;
-        makeGraphic<RectangleShape>(tank::Rectu{0, offset, pixelSize, 1})->setFillColor({});
-        makeGraphic<RectangleShape>(tank::Rectu{offset, 0, 1, pixelSize})->setFillColor({});
+        makeGraphic<RectangleShape>(tank::Rectu{0, offset, pixelSize, 1})
+            ->setFillColor({});
+        makeGraphic<RectangleShape>(tank::Rectu{offset, 0, 1, pixelSize})
+            ->setFillColor({});
     }
 
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
@@ -121,13 +123,13 @@ void Board::draw(tank::Camera const& camera)
 
 void Board::setCursor(Stone s)
 {
-    cursor_->setVisibile(true);
+    cursor_->setVisible(true);
     if (s == Black) {
         cursor_->setFillColor({0,0,0,40});
     } else if (s == White) {
         cursor_->setFillColor({255,255,255, 40});
     } else {
-        cursor_->setVisibile(false);
+        cursor_->setVisible(false);
     }
 }
 
