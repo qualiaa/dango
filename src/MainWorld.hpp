@@ -5,7 +5,9 @@
 #include <boost/asio.hpp>
 #include <Tank/System/World.hpp>
 #include "Connection.hpp"
+#include "Indicator.hpp"
 #include "Board.hpp"
+#include "Stone.hpp"
 
 class MainWorld : public tank::World
 {
@@ -18,9 +20,11 @@ private:
     std::thread connectionThread_;
 
     tank::observing_ptr<Board> board_;
-    bool currentTurn_ {false};
+    tank::observing_ptr<Indicator> turnIndicator_;
+    tank::observing_ptr<Indicator> playerIndicator_;
+    tank::observing_ptr<Indicator> blackScore_;
+    tank::observing_ptr<Indicator> whiteScore_;
     Stone player_ {Empty};
-
 
 public:
     MainWorld(std::string hostname, std::string port);

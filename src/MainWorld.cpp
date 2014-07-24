@@ -8,21 +8,22 @@
 #include "Message.hpp"
 #include "Mutex.hpp"
 
-const std::string MainWorld::messageDelim {"\r\n"};
-
 MainWorld::MainWorld(std::string hostname, std::string port)
     : io_(new boost::asio::io_service)
     , connection_(io_)
     , hostname_(hostname)
     , port_(port)
 {
+    using Pos = tank::Vectorf;
+    turnIndicator_ = makeEntity<Indicator>(Pos{500, 60},"Current Turn");
+    playerIndicator_ = makeEntity<Indicator>(Pos{500, 200},"You Are");
 }
 
 void MainWorld::onAdded()
 {
     try {
         connection_.connect(hostname_, port_);
-        connection_.async_read_until(messageDelim,
+        connection_.async_read_until(Message::delimiter,
                            std::bind(&MainWorld::connectionHandler,
                                      this,
                                      &connection_,
@@ -58,16 +59,8 @@ MainWorld::~MainWorld()
 
 void MainWorld::threadFunc()
 {
-    mutex.lock();
-    std::cout << "[" << std::this_thread::get_id() << "] Thread starting" << std::endl;
-    mutex.unlock();
-
     while (true) {
         try {
-            mutex.lock();
-            std::cerr << "[" << std::this_thread::get_id() << "] ";
-            std::cerr << "Doing work" << std::endl;
-            mutex.unlock();
             boost::system::error_code ec;
             io_->run(ec);
             if (ec) {
@@ -113,16 +106,19 @@ void MainWorld::connectionHandler(Connection *connection,
         Message message{std::move(data)};
 
         // TODO Error checking
+        // PLAYER
         if (message.header == Message::PLAYER) {
             std::cout << "Assigned as player" << std::endl;
             switch (message.data[0]) {
-            case 'w': player_ = White; break;
-            case 'b': player_ = Black; break;
-            default:
-                break;
+                case 'w': player_ = White; break;
+                case 'b': player_ = Black; break;
+                default: player_ = Empty; break;
             }
+            playerIndicator_->setColor(player_);
             board_->setCursor(player_);
-        } else if (message.header == Message::BOARD) {
+        }
+        // BOARD
+        else if (message.header == Message::BOARD) {
             if (message.data.size() != sizeof(unsigned)) {
                 std::cerr << "BOARD: unexpected number of bytes" << std::endl;
             } else {
@@ -131,10 +127,18 @@ void MainWorld::connectionHandler(Connection *connection,
                 board_ = makeEntity<Board>(*connection, size);
                 board_->setCursor(player_);
             }
-        } else if (message.header == Message::TURN) {
+        }
+        // TURN
+        else if (message.header == Message::TURN) {
             std::cout << "Switching turn" << std::endl;
-            currentTurn_ = not currentTurn_;
-        } else if (message.header == Message::SET) {
+            switch (message.data[0]) {
+                case 'w': turnIndicator_->setColor(White); break;
+                case 'b': turnIndicator_->setColor(Black); break;
+                default: break;
+            }
+        }
+        // SET
+        else if (message.header == Message::SET) {
             if (message.data.size() != sizeof(char) + sizeof(tank::Vectoru)) {
                 std::cerr << "SET: unexpected number of bytes" << std::endl;
             } else {
@@ -142,18 +146,21 @@ void MainWorld::connectionHandler(Connection *connection,
                 std::memcpy(&pos, &message.data[1], sizeof(pos));
                 try {
                     switch (message.data[0]) {
-                    case 'w': board_->setStone(pos, White); break;
-                    case 'b': board_->setStone(pos, Black); break;
-                    case 'e': board_->setStone(pos, Empty); break;
-                    default:
-                        std::cerr << "SET: unexpected data" << std::endl;
-                        break;
+                        case 'w': board_->setStone(pos, White); break;
+                        case 'b': board_->setStone(pos, Black); break;
+                        case 'e': board_->setStone(pos, Empty); break;
+                        default:
+                            std::cerr << "SET: unexpected data" << std::endl;
+                            break;
                     }
                 }
                 catch (std::exception const& e) {
                     std::cerr << "Exception: " << e.what() << std::endl;
                 }
             }
+        }
+        // SCORE
+        else if (message.header == Message::SCORE) {
         } else {
             std::cerr << "Error: unexpected header: "
                             << message.header << std::endl;
@@ -164,7 +171,7 @@ void MainWorld::connectionHandler(Connection *connection,
         std::cerr << "Error: " << ec << std::endl;
     }
 
-    connection->async_read_until(messageDelim,
+    connection->async_read_until(Message::delimiter,
                         std::bind(&MainWorld::connectionHandler,
                                   this,
                                   connection,
