@@ -22,10 +22,11 @@ private:
     std::thread connectionThread_;
 
     tank::observing_ptr<Board> board_;
+    tank::observing_ptr<Button> button_;
     tank::observing_ptr<Indicator> turnIndicator_;
     tank::observing_ptr<Indicator> playerIndicator_;
-    tank::observing_ptr<Score> blackScore_;
-    tank::observing_ptr<Score> whiteScore_;
+    tank::observing_ptr<Score> blackScoreDisplay;
+    tank::observing_ptr<Score> whiteScoreDisplay;
     Stone player_ {Empty};
 
 public:

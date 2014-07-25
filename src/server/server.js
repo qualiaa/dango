@@ -12,13 +12,14 @@ if (process.argv[2] && process.argv[2] < MAX_BOARD_SIZE) {
 const port = process.argv[3] ? process.argv[3] : 8037;
 
 // Headers
-const SET    = 's';
-const TURN   = 't';
-const PLAYER = 'p';
 const BOARD  = 'b';
 const SCORE  = 'c';
-const RESET  = 'r';
 const END    = 'e';
+//const MARK   = 'm';
+const PLAYER = 'p';
+const RESET  = 'r';
+const SET    = 's';
+const TURN   = 't';
 var handlers = {}
 
 // Stones
@@ -332,6 +333,7 @@ handlers[TURN] = function (client) {
 handlers[RESET] = function () {
     if (!playing) {
         startGame();
+        sendAllClients(RESET);
         forAllClients(sendBoard);
         forAllClients(sendScore);
         forAllClients(sendTurn);
