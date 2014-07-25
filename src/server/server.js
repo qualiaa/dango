@@ -306,13 +306,17 @@ handlers[SET] = function(client, data) {
         // tell the client the move failed
         sendStone(client, x, y);
     }
-}
+};
 
-handlers[TURN] = switchTurn;
+handlers[TURN] = function (client) {
+    if (client.color == currentPlayer) {
+        switchTurn();
+    }
+};
 
 handlers[RESET] = function () {
     startGame();
     forAllClients(sendBoard);
     forAllClients(sendScore);
     forAllClients(sendTurn);
-}
+};
