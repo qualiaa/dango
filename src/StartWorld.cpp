@@ -24,10 +24,8 @@ StartWorld::StartWorld()
 
     errorText_ = gui->makeGraphic<tank::Text>(titleFont);
     errorText_->setColor({200,0,0});
-    errorText_->setText("Error!");
     errorText_->setFontSize(14);
     errorText_->setPos(tank::Vectorf(tank::Game::window()->getSize().x / 2, 400));
-    errorText_->setOrigin(tank::Vectori(errorText_->getSize() / 2));
 
     // Create error text
 
@@ -86,5 +84,18 @@ void StartWorld::switchFocus(unsigned shift)
 
 void StartWorld::startGame()
 {
-    tank::Game::makeWorld<MainWorld>(hostname_->getText(), port_->getText());
+    using IO = boost::asio::io_service;
+    try {
+        std::shared_ptr<IO> io {new IO};
+        Connection connection {io};
+        connection.connect(hostname_->getText(), port_->getText());
+        tank::Game::makeWorld<MainWorld>(io, std::move(connection));
+        errorText_->setText("");
+    }
+    catch (std::exception const& e) {
+        std::cerr << "Exception while creating MainWorld: ";
+        std::cerr << e.what() << std::endl;
+        errorText_->setText(e.what());
+        errorText_->setOrigin(tank::Vectori(errorText_->getSize() / 2));
+    }
 }

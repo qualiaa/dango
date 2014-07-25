@@ -8,15 +8,13 @@
 #include "Message.hpp"
 #include "Mutex.hpp"
 
-MainWorld::MainWorld(std::string hostname, std::string port)
-    : io_(new boost::asio::io_service)
-    , connection_(io_)
-    , hostname_(hostname)
-    , port_(port)
+MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c)
+    : io_(io)
+    , connection_(std::move(c))
 {
     using Pos = tank::Vectorf;
-    turnIndicator_ = makeEntity<Indicator>(Pos{500, 60},"Current Turn");
-    playerIndicator_ = makeEntity<Indicator>(Pos{500, 200},"You Are");
+    turnIndicator_ = makeEntity<Indicator>(Pos{500, 60}, "Current Turn");
+    playerIndicator_ = makeEntity<Indicator>(Pos{500, 200}, "You Are");
 
     blackScore_ = makeEntity<Score>(Pos{425, 340}, "Black:");
     whiteScore_ = makeEntity<Score>(Pos{425, 375}, "White:");
@@ -32,29 +30,17 @@ MainWorld::MainWorld(std::string hostname, std::string port)
                            // Send message
                            connection_.write(data, data.size());
                        });
-}
 
-void MainWorld::onAdded()
-{
-    try {
-        connection_.connect(hostname_, port_);
-        connection_.async_read_until(Message::delimiter,
-                                     std::bind(&MainWorld::connectionHandler,
-                                               this,
-                                               &connection_,
-                                               std::placeholders::_1,
-                                               std::placeholders::_2));
-        board_ = makeEntity<Board>(connection_);
+    connection_.async_read_until(Message::delimiter,
+                                 std::bind(&MainWorld::connectionHandler,
+                                           this,
+                                           &connection_,
+                                           std::placeholders::_1,
+                                           std::placeholders::_2));
+    board_ = makeEntity<Board>(connection_);
 
-        connectionThread_ = std::thread(&MainWorld::threadFunc, this);
-        connectionThread_.detach();
-    }
-    catch (std::exception const& e) {
-        std::cerr << "Exception while creating MainWorld: ";
-        std::cerr << e.what() << std::endl;
-        std::cerr << "Returning to menu" << std::endl;
-        tank::Game::popWorld();
-    }
+    connectionThread_ = std::thread(&MainWorld::threadFunc, this);
+    connectionThread_.detach();
 }
 
 void MainWorld::draw()

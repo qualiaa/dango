@@ -29,10 +29,9 @@ private:
     Stone player_ {Empty};
 
 public:
-    MainWorld(std::string hostname, std::string port);
+    MainWorld(std::shared_ptr<boost::asio::io_service>, Connection&& c);
     virtual ~MainWorld();
 
-    virtual void onAdded() override;
     virtual void draw() override;
 
     void threadFunc();
