@@ -20,6 +20,18 @@ MainWorld::MainWorld(std::string hostname, std::string port)
 
     blackScore_ = makeEntity<Score>(Pos{425, 340}, "Black:");
     whiteScore_ = makeEntity<Score>(Pos{425, 375}, "White:");
+
+    // Pass button
+    makeEntity<Button>(Pos{425, 410},
+                       tank::Vectoru{100,30},
+                       "Pass",
+                       [this]{
+                           // Set up message
+                           boost::array<char, 1> data;
+                           data[0] = Message::TURN;
+                           // Send message
+                           connection_.write(data, data.size());
+                       });
 }
 
 void MainWorld::onAdded()

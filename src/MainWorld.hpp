@@ -7,6 +7,7 @@
 #include "Connection.hpp"
 #include "Indicator.hpp"
 #include "Board.hpp"
+#include "Button.hpp"
 #include "Stone.hpp"
 #include "Score.hpp"
 

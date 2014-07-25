@@ -69,9 +69,11 @@ void Board::onRelease()
         static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
     };
 
+    // Set up message
     boost::array<char, sizeof(tilePos) + 1> data;
     data[0] = 's';
     std::memcpy(&data[1],  &tilePos, sizeof(tilePos));
+    // Send message
     connection_.write(data, data.size());
 
     auto c = cursor_->getFillColor();
