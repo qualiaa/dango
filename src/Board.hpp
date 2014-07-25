@@ -19,7 +19,7 @@ private:
 
     tank::Grid<Stone> grid_;
     tank::observing_ptr<tank::CircleShape> cursor_;
-    std::array<tank::CircleShape, 3> stone_;
+    std::array<tank::CircleShape, 3> stoneFlyweights_;
 
     bool isIn_ {false}, wasIn_ {false};
 

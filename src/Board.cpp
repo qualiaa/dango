@@ -29,10 +29,10 @@ Board::Board(Connection& c, unsigned size)
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
     hideCursor();
 
-    stone_[White] = tank::CircleShape(stoneRadius);
-    stone_[Black] = tank::CircleShape(stoneRadius);
-    stone_[Empty] = tank::CircleShape(0);
-    stone_[Black].setFillColor({});
+    stoneFlyweights_[White] = tank::CircleShape(stoneRadius);
+    stoneFlyweights_[Black] = tank::CircleShape(stoneRadius);
+    stoneFlyweights_[Empty] = tank::CircleShape(0);
+    stoneFlyweights_[Black].setFillColor({});
 }
 
 void Board::onAdded()
@@ -116,7 +116,7 @@ void Board::draw(tank::Camera const& camera)
     for (pos.y = 0; pos.y < grid_.getHeight(); ++pos.y) {
         for (pos.x = 0; pos.x < grid_.getWidth(); ++pos.x) {
             //draw the appropriate stone flyweight at pos
-            stone_[grid_[pos]].draw(pos*ss + getPos(), 0, {}, camera);
+            stoneFlyweights_[grid_[pos]].draw(pos*ss + getPos(), 0, {}, camera);
         }
     }
 }
