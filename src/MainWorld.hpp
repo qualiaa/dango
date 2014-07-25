@@ -8,6 +8,7 @@
 #include "Indicator.hpp"
 #include "Board.hpp"
 #include "Stone.hpp"
+#include "Score.hpp"
 
 class MainWorld : public tank::World
 {
@@ -22,8 +23,8 @@ private:
     tank::observing_ptr<Board> board_;
     tank::observing_ptr<Indicator> turnIndicator_;
     tank::observing_ptr<Indicator> playerIndicator_;
-    tank::observing_ptr<Indicator> blackScore_;
-    tank::observing_ptr<Indicator> whiteScore_;
+    tank::observing_ptr<Score> blackScore_;
+    tank::observing_ptr<Score> whiteScore_;
     Stone player_ {Empty};
 
 public:
@@ -31,6 +32,7 @@ public:
     virtual ~MainWorld();
 
     virtual void onAdded() override;
+    virtual void draw() override;
 
     void threadFunc();
     void connectionHandler(Connection *c,

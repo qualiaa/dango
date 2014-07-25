@@ -3,7 +3,6 @@
 #include <cmath>
 #include <Tank/System/Mouse.hpp>
 #include <Tank/Graphics/RectangleShape.hpp>
-#include "Mutex.hpp"
 
 Board::Board(Connection& c, unsigned size)
   : tank::Entity({border,border})
@@ -111,14 +110,12 @@ void Board::draw(tank::Camera const& camera)
     tank::Vectoru pos;
     const auto ss = stoneSize;
 
-    mutex.lock();
     for (pos.y = 0; pos.y < grid_.getHeight(); ++pos.y) {
         for (pos.x = 0; pos.x < grid_.getWidth(); ++pos.x) {
             //draw the appropriate stone flyweight at pos
             stone_[grid_[pos]].draw(pos*ss + getPos(), 0, {}, camera);
         }
     }
-    mutex.unlock();
 }
 
 void Board::setCursor(Stone s)

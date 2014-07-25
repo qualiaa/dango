@@ -17,6 +17,9 @@ MainWorld::MainWorld(std::string hostname, std::string port)
     using Pos = tank::Vectorf;
     turnIndicator_ = makeEntity<Indicator>(Pos{500, 60},"Current Turn");
     playerIndicator_ = makeEntity<Indicator>(Pos{500, 200},"You Are");
+
+    blackScore_ = makeEntity<Score>(Pos{425, 340}, "Black:");
+    whiteScore_ = makeEntity<Score>(Pos{425, 375}, "White:");
 }
 
 void MainWorld::onAdded()
@@ -24,11 +27,11 @@ void MainWorld::onAdded()
     try {
         connection_.connect(hostname_, port_);
         connection_.async_read_until(Message::delimiter,
-                           std::bind(&MainWorld::connectionHandler,
-                                     this,
-                                     &connection_,
-                                     std::placeholders::_1,
-                                     std::placeholders::_2));
+                                     std::bind(&MainWorld::connectionHandler,
+                                               this,
+                                               &connection_,
+                                               std::placeholders::_1,
+                                               std::placeholders::_2));
         board_ = makeEntity<Board>(connection_);
 
         connectionThread_ = std::thread(&MainWorld::threadFunc, this);
@@ -40,6 +43,13 @@ void MainWorld::onAdded()
         std::cerr << "Returning to menu" << std::endl;
         tank::Game::popWorld();
     }
+}
+
+void MainWorld::draw()
+{
+    mutex.lock();
+    tank::World::draw();
+    mutex.unlock();
 }
 
 MainWorld::~MainWorld()
@@ -80,7 +90,6 @@ void MainWorld::threadFunc()
     mutex.lock();
     std::cout << "[" << std::this_thread::get_id() << "] Thread closing" << std::endl;
     mutex.unlock();
-
 }
 
 void MainWorld::connectionHandler(Connection *connection,
@@ -108,7 +117,6 @@ void MainWorld::connectionHandler(Connection *connection,
         // TODO Error checking
         // PLAYER
         if (message.header == Message::PLAYER) {
-            std::cout << "Assigned as player" << std::endl;
             switch (message.data[0]) {
                 case 'w': player_ = White; break;
                 case 'b': player_ = Black; break;
@@ -130,7 +138,6 @@ void MainWorld::connectionHandler(Connection *connection,
         }
         // TURN
         else if (message.header == Message::TURN) {
-            std::cout << "Switching turn" << std::endl;
             switch (message.data[0]) {
                 case 'w': turnIndicator_->setColor(White); break;
                 case 'b': turnIndicator_->setColor(Black); break;
@@ -161,6 +168,11 @@ void MainWorld::connectionHandler(Connection *connection,
         }
         // SCORE
         else if (message.header == Message::SCORE) {
+            unsigned black, white;
+            std::memcpy(&black, &message.data[0], sizeof(black));
+            std::memcpy(&white, &message.data[0] + sizeof(black), sizeof(white));
+            blackScore_->setScore(black);
+            whiteScore_->setScore(white);
         } else {
             std::cerr << "Error: unexpected header: "
                             << message.header << std::endl;
@@ -172,9 +184,9 @@ void MainWorld::connectionHandler(Connection *connection,
     }
 
     connection->async_read_until(Message::delimiter,
-                        std::bind(&MainWorld::connectionHandler,
-                                  this,
-                                  connection,
-                                  std::placeholders::_1,
-                                  std::placeholders::_2));
+                                 std::bind(&MainWorld::connectionHandler,
+                                           this,
+                                           connection,
+                                           std::placeholders::_1,
+                                           std::placeholders::_2));
 }
