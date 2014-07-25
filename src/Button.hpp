@@ -23,6 +23,7 @@ public:
     virtual void update() override;
     //virtual void draw(tank::Camera const&) override;
 
+    void setCallback(std::function<void()> c) { callback_ = c; }
     void setLabel(std::string label);
     std::string getLabel() const { return label_->getText(); }
     void setFontSize(unsigned);
