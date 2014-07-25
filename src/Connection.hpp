@@ -25,6 +25,17 @@ public:
         , socket_(*io)
     {
     }
+
+    Connection(Connection&& c)
+        : io_(c.io_)
+        , socket_(std::move(c.socket_))
+    {
+        c.io_ = nullptr;
+        c.socket_ = Socket(*io_);
+    }
+
+    Connection(Connection const&) = delete;
+    Connection& operator=(Connection const&) = delete;
     virtual ~Connection();
 
     void connect(std::string hostname, std::string service);
