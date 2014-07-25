@@ -50,6 +50,14 @@ MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c
     using K = tank::Keyboard;
     using Key = tank::Key;
     connect(K::KeyRelease(Key::Escape), tank::Game::popWorld);
+    connect(K::KeyDown(Key::LShift) && K::KeyDown(Key::K),
+                                 [this]{
+                                     // Set up message
+                                     boost::array<char, 1> data;
+                                     data[0] = Message::KILL;
+                                     // Send message
+                                     connection_.write(data, data.size());
+                                 });
 }
 
 void MainWorld::draw()

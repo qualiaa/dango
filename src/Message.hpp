@@ -11,6 +11,7 @@ public:
     static constexpr char BOARD  = 'b'; // Set board size
     static constexpr char SCORE  = 'c'; // Set scores
     static constexpr char END    = 'e'; // Game Ended
+    static constexpr char KILL   = 'k'; // Game Ended
     static constexpr char PLAYER = 'p'; // Set client to player
     static constexpr char RESET  = 'r'; // Restart Game
     static constexpr char SET    = 's'; // Set a stone

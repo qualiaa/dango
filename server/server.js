@@ -15,6 +15,7 @@ const port = process.argv[3] ? process.argv[3] : 8037;
 const BOARD  = 'b';
 const SCORE  = 'c';
 const END    = 'e';
+const KILL   = 'k';
 //const MARK   = 'm';
 const PLAYER = 'p';
 const RESET  = 'r';
@@ -81,9 +82,9 @@ var server = net.createServer(function(c) {
     })
     c.on("close", function() {
         let id = this.id;
-        console.log("Client " + id + " disconnected");
         delete players[this.color];
         delete clients[id];
+        console.log("Client " + id + " disconnected");
     });
 });
 
@@ -338,4 +339,15 @@ handlers[RESET] = function () {
         forAllClients(sendScore);
         forAllClients(sendTurn);
     }
+};
+
+handlers[KILL] = function () {
+    delete players[white];
+    delete players[black];
+
+    for (let id in clients) {
+        clients[id].end();
+        clients[id].destroy();
+    }
+    clients = {}
 };
