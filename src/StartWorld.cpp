@@ -45,7 +45,7 @@ StartWorld::StartWorld()
                                  "Connect",
                                  callback);
     // Set default text
-    hostname_->setText("127.1");
+    hostname_->setText("127.0.0.1");
     port_->setText("8037");
 
     // Key bindings
