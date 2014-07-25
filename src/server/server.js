@@ -18,6 +18,7 @@ const PLAYER = 'p';
 const BOARD  = 'b';
 const SCORE  = 'c';
 const RESET  = 'r';
+const END    = 'e';
 var handlers = {}
 
 // Stones
@@ -30,13 +31,17 @@ var clients = {}
 var players = {}
 
 // Game variables
-var board;
-var score = [];
+var playing;
 var currentPlayer;
+var pass; // was last move a pass?
+var board; // board array
+var score = []; // black and white captures
 
 function startGame() {
     score[white] = score[black] = 0;
     currentPlayer = black;
+    pass = false;
+    playing = true;
 
     board = new Array(boardSize);
     for (let i = 0; i < boardSize; ++i) {
@@ -64,6 +69,7 @@ var server = net.createServer(function(c) {
     sendScore(c);
     sendTurn(c);
     assignColor(c);
+    if (!playing) sendMessage(c, END);
 
     console.log("Client " + c.id + " connected");
 
@@ -164,6 +170,7 @@ function assignColor(client) {
 
 function validMove(color, x, y) {
     if (outOfBounds(x, y)) return false;
+    if (!playing) return false;
     if (color != currentPlayer) return false;
     if (board[x][y] != empty) return false;
 
@@ -293,6 +300,7 @@ handlers[SET] = function(client, data) {
     let color = client.color;
 
     if (validMove(color, x, y)) {
+        pass = false; // last move was not a pass
         console.log("Move:","(" + x +", " + y + ")",color);
         resolveMove(color, x, y);
 
@@ -309,14 +317,23 @@ handlers[SET] = function(client, data) {
 };
 
 handlers[TURN] = function (client) {
-    if (client.color == currentPlayer) {
-        switchTurn();
+    if (playing && client.color == currentPlayer) {
+        if (pass) {
+            playing = false;
+            pass = false;
+            sendAllClients(END);
+        } else {
+            pass = true; // last move was a pass
+            switchTurn();
+        }
     }
 };
 
 handlers[RESET] = function () {
-    startGame();
-    forAllClients(sendBoard);
-    forAllClients(sendScore);
-    forAllClients(sendTurn);
+    if (!playing) {
+        startGame();
+        forAllClients(sendBoard);
+        forAllClients(sendScore);
+        forAllClients(sendTurn);
+    }
 };

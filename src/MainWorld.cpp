@@ -126,7 +126,7 @@ void MainWorld::connectionHandler(Connection *connection,
 
         Message message{std::move(data)};
 
-        // TODO Error checking
+        // TODO: Error checking
         // PLAYER
         if (message.header == Message::PLAYER) {
             switch (message.player.color) {
@@ -179,6 +179,10 @@ void MainWorld::connectionHandler(Connection *connection,
         else if (message.header == Message::SCORE) {
             blackScore_->setScore(message.score.black);
             whiteScore_->setScore(message.score.white);
+        } 
+        // END
+        else if (message.header == Message::END) {
+            turnIndicator_->setColor(Empty);
         } else {
             std::cerr << "Error: unexpected header: "
                             << message.header << std::endl;
