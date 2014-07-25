@@ -2,7 +2,6 @@
 
 #include <Tank/System/Game.hpp>
 #include <Tank/System/Keyboard.hpp>
-#include <Tank/Graphics/Text.hpp>
 #include "MainWorld.hpp"
 
 tank::Font StartWorld::titleFont;
@@ -15,12 +14,22 @@ StartWorld::StartWorld()
     font.loadFromFile("res/Consola.ttf");
 
     // Make title text
-    auto title = makeEntity<tank::Entity>()->makeGraphic<tank::Text>(titleFont);
+    auto gui = makeEntity<tank::Entity>();
+    auto title = gui->makeGraphic<tank::Text>(titleFont);
     title->setColor({255,255,255});
     title->setText("dango");
     title->setFontSize(72);
-    title->setOrigin(title->getSize() / 2);
+    title->setOrigin(tank::Vectori(title->getSize() / 2));
     title->setPos(tank::Vectorf(tank::Game::window()->getSize().x / 2, 50));
+
+    errorText_ = gui->makeGraphic<tank::Text>(titleFont);
+    errorText_->setColor({200,0,0});
+    errorText_->setText("Error!");
+    errorText_->setFontSize(14);
+    errorText_->setPos(tank::Vectorf(tank::Game::window()->getSize().x / 2, 400));
+    errorText_->setOrigin(tank::Vectori(errorText_->getSize() / 2));
+
+    // Create error text
 
     std::function<void()> callback = std::bind(&StartWorld::startGame,this);
     // Make input boxes
@@ -44,8 +53,10 @@ StartWorld::StartWorld()
     // Key bindings
     using K = tank::Keyboard;
     using Key = tank::Key;
-    connect(K::KeyPress(Key::Tab) && []{return not K::control();}, [this](){ switchFocus(1);} );
-    connect(K::KeyPress(Key::Tab) && K::Control, [this](){ switchFocus(menuItems - 1);});
+    connect(K::KeyPress(Key::Tab) && []{return not K::control();},
+            [this](){ switchFocus(1);} );
+    connect(K::KeyPress(Key::Tab) && K::Control,
+            [this](){ switchFocus(menuItems - 1);});
     //connect(K::KeyPress(Key::Return), &StartWorld::switchFocus);
 
     // Give focus to hostname
