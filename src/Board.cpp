@@ -3,6 +3,7 @@
 #include <cmath>
 #include <Tank/System/Mouse.hpp>
 #include <Tank/Graphics/RectangleShape.hpp>
+#include "Message.hpp"
 
 Board::Board(Connection& c, unsigned size)
   : tank::Entity({border,border})
@@ -71,7 +72,7 @@ void Board::onRelease()
 
     // Set up message
     boost::array<char, sizeof(tilePos) + 1> data;
-    data[0] = 's';
+    data[0] = Message::SET;
     std::memcpy(&data[1],  &tilePos, sizeof(tilePos));
     // Send message
     connection_.write(data, data.size());

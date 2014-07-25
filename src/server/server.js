@@ -117,9 +117,9 @@ function sendAllClients(header, data) {
 
 function sendStone(client, x, y) {
     let data = new Buffer(9, "hex");
-    data.write(board[x][y], 0, 1, "ascii")
-    data.writeUInt32LE(x, 1);
-    data.writeUInt32LE(y, 5);
+    data.write(board[x][y], 8, 1, "ascii")
+    data.writeUInt32LE(x, 0);
+    data.writeUInt32LE(y, 4);
 
     sendMessage(client, SET, data);
 }

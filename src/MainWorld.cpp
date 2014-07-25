@@ -129,7 +129,7 @@ void MainWorld::connectionHandler(Connection *connection,
         // TODO Error checking
         // PLAYER
         if (message.header == Message::PLAYER) {
-            switch (message.data[0]) {
+            switch (message.player.color) {
                 case 'w': player_ = White; break;
                 case 'b': player_ = Black; break;
                 default: player_ = Empty; break;
@@ -142,15 +142,14 @@ void MainWorld::connectionHandler(Connection *connection,
             if (message.data.size() != sizeof(unsigned)) {
                 std::cerr << "BOARD: unexpected number of bytes" << std::endl;
             } else {
-                const unsigned size = *(&message.data[0]);
                 board_->remove();
-                board_ = makeEntity<Board>(*connection, size);
+                board_ = makeEntity<Board>(*connection, message.board.size);
                 board_->setCursor(player_);
             }
         }
         // TURN
         else if (message.header == Message::TURN) {
-            switch (message.data[0]) {
+            switch (message.turn.color) {
                 case 'w': turnIndicator_->setColor(White); break;
                 case 'b': turnIndicator_->setColor(Black); break;
                 default: break;
@@ -161,13 +160,11 @@ void MainWorld::connectionHandler(Connection *connection,
             if (message.data.size() != sizeof(char) + sizeof(tank::Vectoru)) {
                 std::cerr << "SET: unexpected number of bytes" << std::endl;
             } else {
-                tank::Vectoru pos;
-                std::memcpy(&pos, &message.data[1], sizeof(pos));
                 try {
-                    switch (message.data[0]) {
-                        case 'w': board_->setStone(pos, White); break;
-                        case 'b': board_->setStone(pos, Black); break;
-                        case 'e': board_->setStone(pos, Empty); break;
+                    switch (message.set.color) {
+                        case 'w': board_->setStone(message.set.pos, White); break;
+                        case 'b': board_->setStone(message.set.pos, Black); break;
+                        case 'e': board_->setStone(message.set.pos, Empty); break;
                         default:
                             std::cerr << "SET: unexpected data" << std::endl;
                             break;
@@ -180,11 +177,8 @@ void MainWorld::connectionHandler(Connection *connection,
         }
         // SCORE
         else if (message.header == Message::SCORE) {
-            unsigned black, white;
-            std::memcpy(&black, &message.data[0], sizeof(black));
-            std::memcpy(&white, &message.data[0] + sizeof(black), sizeof(white));
-            blackScore_->setScore(black);
-            whiteScore_->setScore(white);
+            blackScore_->setScore(message.score.black);
+            whiteScore_->setScore(message.score.white);
         } else {
             std::cerr << "Error: unexpected header: "
                             << message.header << std::endl;
