@@ -32,7 +32,7 @@ void Input::setText(std::string text)
 void Input::setLabel(std::string label)
 {
     label_->setText(label);
-    label_->setOrigin({label_->getSize().x + 5, 2});
+    label_->setOrigin(tank::Vectori(label_->getSize().x + 5, 2));
 }
 
 void Input::setFontSize(unsigned s)

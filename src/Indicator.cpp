@@ -9,9 +9,9 @@ Indicator::Indicator(tank::Vectorf pos, std::string label)
     auto text = makeGraphic<tank::Text>(StartWorld::font);
     text->setText(label);
     text->setFontSize(24);
-    text->setOrigin(text->getSize() / 2);
+    text->setOrigin(tank::Vectori(text->getSize() / 2));
     indicator_ = makeGraphic<tank::CircleShape>(40);
-    indicator_->setOrigin(indicator_->getSize() / 2);
+    indicator_->setOrigin(tank::Vectori(indicator_->getSize() / 2));
     indicator_->setPos({0, 75});
     indicator_->setOutlineThickness(2);
 

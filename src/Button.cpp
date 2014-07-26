@@ -23,8 +23,8 @@ Button::Button(tank::Vectorf pos,
 void Button::setLabel(std::string label)
 {
     label_->setText(label);
-    label_->setPos(box_->getSize() / 2);
-    label_->setOrigin((label_->getSize() / 2) + tank::Vectorf{0, 4});
+    label_->setPos(tank::Vectori(box_->getSize() / 2));
+    label_->setOrigin(tank::Vectori((label_->getSize() / 2) + tank::Vectorf{0, 4}));
 }
 
 void Button::setFontSize(unsigned s)
