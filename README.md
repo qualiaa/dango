@@ -14,7 +14,8 @@ Minimal go server/client written in node.js and c++.
 To build the client:
 
     mkdir build
-    cmake [dango-root-dir]
+    cd build
+    cmake dango-root-dir
     make
 
 #Run
@@ -23,6 +24,6 @@ Run the client as a normal program
 
     ./dango
 
-Server runs as a script
+Server runs as a node.js script
 
     node --use_strict --harmony server.js [board_size] [port]
