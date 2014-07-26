@@ -2,6 +2,7 @@
 #define MAINWORLD_HPP
 
 #include <thread>
+#include <mutex>
 #include <boost/asio.hpp>
 #include <Tank/System/World.hpp>
 #include "Connection.hpp"
@@ -28,6 +29,8 @@ private:
     tank::observing_ptr<Score> blackScoreDisplay;
     tank::observing_ptr<Score> whiteScoreDisplay;
     Stone player_ {Empty};
+
+    std::mutex mutex_;
 
 public:
     MainWorld(std::shared_ptr<boost::asio::io_service>, Connection&& c);

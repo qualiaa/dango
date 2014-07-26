@@ -7,7 +7,6 @@
 #include <Tank/System/Game.hpp>
 #include <Tank/System/Keyboard.hpp>
 #include "Message.hpp"
-#include "Mutex.hpp"
 
 MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c)
     : io_(io)
@@ -39,8 +38,6 @@ MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c
                                            &connection_,
                                            std::placeholders::_1,
                                            std::placeholders::_2));
-    // Create board
-    board_ = makeEntity<Board>(connection_);
 
     // Split IO thread
     connectionThread_ = std::thread(&MainWorld::threadFunc, this);
@@ -62,9 +59,9 @@ MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c
 
 void MainWorld::draw()
 {
-    mutex.lock();
+    mutex_.lock();
     tank::World::draw();
-    mutex.unlock();
+    mutex_.unlock();
 }
 
 MainWorld::~MainWorld()
@@ -89,10 +86,10 @@ void MainWorld::threadFunc()
             boost::system::error_code ec;
             io_->run(ec);
             if (ec) {
-                mutex.lock();
+                mutex_.lock();
                 std::cerr << "[" << std::this_thread::get_id() << "] ";
                 std::cerr << "Error: " << ec << std::endl;
-                mutex.unlock();
+                mutex_.unlock();
             }
             break;
         }
@@ -102,9 +99,9 @@ void MainWorld::threadFunc()
         }
     }
 
-    mutex.lock();
+    mutex_.lock();
     std::cout << "[" << std::this_thread::get_id() << "] Thread closing" << std::endl;
-    mutex.unlock();
+    mutex_.unlock();
 }
 
 void MainWorld::connectionHandler(Connection *connection,
@@ -112,7 +109,7 @@ void MainWorld::connectionHandler(Connection *connection,
                                   size_t bytes)
 {
     if (!ec) {
-        mutex.lock();
+        mutex_.lock();
 
         // Create an instream from the connection stream buffer
         std::istream instream {connection->streamBuffer()};
@@ -121,11 +118,13 @@ void MainWorld::connectionHandler(Connection *connection,
         // Read the data into the vector
         instream.read(&data[0], bytes);
         // print data
+        /*
         std::cout << "Handling " << bytes << " bytes: < " << std::hex;
         for (auto byte : data) {
             std::cout << static_cast<unsigned>(byte) << " ";
         }
         std::cout << ">" << std::dec <<  std::endl;
+        */
 
         Message message{std::move(data)};
 
@@ -139,7 +138,9 @@ void MainWorld::connectionHandler(Connection *connection,
             playerIndicator_->setColor(player_);
             board_->setCursor(player_);
         } else if (message.header == Message::BOARD) {
-            board_->remove();
+            if (board_) {
+                board_->remove();
+            }
             board_ = makeEntity<Board>(*connection, message.board.size);
             board_->setCursor(player_);
         } else if (message.header == Message::TURN) {
@@ -166,7 +167,6 @@ void MainWorld::connectionHandler(Connection *connection,
             blackScoreDisplay->setScore(message.score.black);
             whiteScoreDisplay->setScore(message.score.white);
         } else if (message.header == Message::END) {
-            std::cout << "END" << std::endl;
             turnIndicator_->setColor(Empty);
             //button_->setLabel("New Game");
             button_->setCallback([this]{
@@ -178,7 +178,6 @@ void MainWorld::connectionHandler(Connection *connection,
                                  });
         } else if (message.header == Message::RESET) {
             //button_->setLabel("Pass");
-            std::cout << "RESET" << std::endl;
             button_->setCallback([this]{
                                      // Set up message
                                      boost::array<char, 1> data;
@@ -191,7 +190,7 @@ void MainWorld::connectionHandler(Connection *connection,
                             << message.header << std::endl;
         }
 
-        mutex.unlock();
+        mutex_.unlock();
     } else {
         std::cerr << "Error: " << ec << std::endl;
     }
