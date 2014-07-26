@@ -1,9 +1,9 @@
 #include "Connection.hpp"
-#include <iostream>
+#include <Tank/System/Game.hpp>
 
 void Connection::connect(std::string hostname, std::string service)
 {
-    std::cout << "Opening connection" << std::endl;
+    tank::Game::log << "Opening connection" << std::endl;
     Resolver resolver_(*io_);
     Resolver::iterator end, endpoint = resolver_.resolve({hostname, service});
     boost::system::error_code error = boost::asio::error::host_not_found;
@@ -59,5 +59,7 @@ Connection::~Connection()
     boost::system::error_code ec;
     socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both,ec);
     socket_.close(ec);
-    std::cout << "Closed connection" << std::endl;
+    if (ec) {
+        tank::Game::log << ec << std::endl;
+    }
 }
