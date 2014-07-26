@@ -1,5 +1,6 @@
 #include "StartWorld.hpp"
 
+#include <fstream>
 #include <Tank/System/Game.hpp>
 #include <Tank/System/Keyboard.hpp>
 #include "MainWorld.hpp"
@@ -45,8 +46,12 @@ StartWorld::StartWorld()
                                  "Connect",
                                  callback);
     // Set default text
-    hostname_->setText("127.0.0.1");
-    port_->setText("8037");
+    std::string hostname = "127.0.0.1";
+    std::string port = "8037";
+    std::ifstream defaultServer {"default_server.txt"};
+    defaultServer >> hostname >> port;
+    hostname_->setText(hostname);
+    port_->setText(port);
 
     // Key bindings
     using K = tank::Keyboard;
@@ -88,13 +93,20 @@ void StartWorld::startGame()
     try {
         std::shared_ptr<IO> io {new IO};
         Connection connection {io};
-        connection.connect(hostname_->getText(), port_->getText());
+        std::string hostname = hostname_->getText();
+        std::string port = port_->getText();
+
+        errorText_->setText("Connecting...");
+        connection.connect(hostname, port);
         tank::Game::makeWorld<MainWorld>(io, std::move(connection));
         errorText_->setText("");
+
+        std::ofstream defaultServer {"default_server.txt"};
+        defaultServer << hostname << std::endl << port << std::endl;
     }
     catch (std::exception const& e) {
-        std::cerr << "Exception while creating MainWorld: ";
-        std::cerr << e.what() << std::endl;
+        tank::Game::log << "Exception while connecting to server: "
+                        << e.what() << std::endl;
         errorText_->setText(e.what());
         errorText_->setOrigin(tank::Vectori(errorText_->getSize() / 2));
     }
