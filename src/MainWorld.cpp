@@ -43,7 +43,7 @@ MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c
     connectionThread_ = std::thread(&MainWorld::threadFunc, this);
     connectionThread_.detach();
 
-    // Register input events
+    // Register input handlers
     using K = tank::Keyboard;
     using Key = tank::Key;
     connect(K::KeyRelease(Key::Escape), tank::Game::popWorld);
@@ -51,10 +51,18 @@ MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c
                                  [this]{
                                      // Set up message
                                      boost::array<char, 1> data;
-                                     data[0] = Message::KILL;
+                                     data[0] = Message::KICK_ALL;
                                      // Send message
                                      connection_.write(data, data.size());
                                  });
+    connect(K::KeyDown(Key::K),
+            [this]{
+                // Set up message
+                boost::array<char, 1> data;
+                data[0] = Message::KILL;
+                // Send message
+                connection_.write(data, data.size());
+            });
 }
 
 void MainWorld::draw()
@@ -159,6 +167,13 @@ void MainWorld::connectionHandler(Connection *connection,
                         std::cerr << "SET: unexpected data" << std::endl;
                         break;
                 }
+            }
+            catch (std::exception const& e) {
+                std::cerr << "Exception: " << e.what() << std::endl;
+            }
+        } else if (message.header == Message::MARK) {
+            try {
+                board_->setMark(message.mark.pos, message.mark.mark);
             }
             catch (std::exception const& e) {
                 std::cerr << "Exception: " << e.what() << std::endl;

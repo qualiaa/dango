@@ -8,7 +8,8 @@
 Board::Board(Connection& c, unsigned size)
   : tank::Entity({border,border})
   , connection_(c)
-  , grid_(tank::Vectoru{size,size}, Empty)
+  , board_(tank::Vectoru{size,size}, Empty)
+  , marks_(tank::Vectoru{size,size}, false)
 {
     using tank::RectangleShape;
 
@@ -26,6 +27,10 @@ Board::Board(Connection& c, unsigned size)
             ->setFillColor({});
     }
 
+    mark_.setSize({stoneRadius,stoneRadius});
+    mark_.setFillColor({127,127,127});
+    mark_.setPos(tank::Vectori(mark_.getSize() / 2));
+
     cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
     hideCursor();
 
@@ -41,7 +46,7 @@ void Board::onAdded()
     using B = M::Button;
     connect(M::InEntity(*this), &Board::mouseOver);
     connect(M::InEntity(*this) && M::ButtonPress(B::Left), &Board::onClick);
-    connect(M::InEntity(*this) && M::ButtonRelease(B::Left), &Board::onRelease);
+    connect(M::InEntity(*this) && M::ButtonRelease(), &Board::onRelease);
 }
 
 void Board::mouseOver()
@@ -70,16 +75,35 @@ void Board::onRelease()
         static_cast<unsigned>(std::floor((mPos.y) / stoneSize))
     };
 
-    // Set up message
-    boost::array<char, sizeof(tilePos) + 1> data;
-    data[0] = Message::SET;
-    std::memcpy(&data[1],  &tilePos, sizeof(tilePos));
-    // Send message
-    connection_.write(data, data.size());
+    if (M::isButtonReleased(M::Button::Left)) {
+        placeStone(tilePos);
+    } else if (M::isButtonReleased(M::Button::Right)) {
+        placeMark(tilePos);
+    }
 
     auto c = cursor_->getFillColor();
     c.a = 40;
     cursor_->setFillColor(c);
+}
+
+void Board::placeStone(tank::Vectoru pos)
+{
+    // Set up message
+    boost::array<char, sizeof(pos) + 1> data;
+    data[0] = Message::SET;
+    std::memcpy(&data[1],  &pos, sizeof(pos));
+    // Send message
+    connection_.write(data, data.size());
+}
+
+void Board::placeMark(tank::Vectoru pos)
+{
+    // Set up message
+    boost::array<char, sizeof(pos) + 1> data;
+    data[0] = Message::MARK;
+    std::memcpy(&data[1],  &pos, sizeof(pos));
+    // Send message
+    connection_.write(data, data.size());
 }
 
 void Board::onClick()
@@ -100,10 +124,18 @@ void Board::update()
 
 void Board::setStone(tank::Vectoru pos, Stone s)
 {
-    if (pos.x > grid_.getWidth() or pos.y > grid_.getHeight()) {
+    if (pos.x > board_.getWidth() or pos.y > board_.getHeight()) {
         throw std::invalid_argument("Stone placed outside of board");
     }
-    grid_[pos] = s;
+    board_[pos] = s;
+}
+
+void Board::setMark(tank::Vectoru pos, bool mark) {
+    if (pos.x > board_.getWidth() or pos.y > board_.getHeight()) {
+        throw std::invalid_argument("Mark placed outside of board");
+    }
+
+    marks_[pos] = mark;
 }
 
 void Board::draw(tank::Camera const& camera)
@@ -113,10 +145,14 @@ void Board::draw(tank::Camera const& camera)
     tank::Vectoru pos;
     const auto ss = stoneSize;
 
-    for (pos.y = 0; pos.y < grid_.getHeight(); ++pos.y) {
-        for (pos.x = 0; pos.x < grid_.getWidth(); ++pos.x) {
-            //draw the appropriate stone flyweight at pos
-            stoneFlyweights_[grid_[pos]].draw(pos*ss + getPos(), 0, {}, camera);
+    for (pos.y = 0; pos.y < board_.getHeight(); ++pos.y) {
+        for (pos.x = 0; pos.x < board_.getWidth(); ++pos.x) {
+            // draw the appropriate stone flyweight at pos
+            stoneFlyweights_[board_[pos]].draw(pos*ss + getPos(), 0, {}, camera);
+            if (marks_[pos]) {
+                // mark any marked stones
+                mark_.draw(pos*ss + getPos(), 0, {}, camera);
+            }
         }
     }
 }

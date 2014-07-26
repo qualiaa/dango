@@ -11,16 +11,17 @@ if (process.argv[2] && process.argv[2] < MAX_BOARD_SIZE) {
 }
 const port = process.argv[3] ? process.argv[3] : 8037;
 
-// Headers
-const BOARD  = 'b';
-const SCORE  = 'c';
-const END    = 'e';
-const KILL   = 'k';
-//const MARK   = 'm';
-const PLAYER = 'p';
-const RESET  = 'r';
-const SET    = 's';
-const TURN   = 't';
+// Headers          // Send / Receive
+const BOARD  = 'b'; // Send board dimensions
+const SCORE  = 'c'; // Send player scores
+const END    = 'e'; // End the game
+const KILL   = 'k'; // / Kill marked stones
+const MARK   = 'm'; // Send marked state / receive mark
+const PLAYER = 'p'; // Send player status (white/black/neither)
+const RESET  = 'r'; // / Restart game
+const SET    = 's'; // Send stone state / receive move
+const TURN   = 't'; // Send turn information / switch turn
+const KICK_ALL = '\t'; // Kick all clients
 var handlers = {}
 
 // Stones
@@ -37,6 +38,7 @@ var playing;
 var currentPlayer;
 var pass; // was last move a pass?
 var board; // board array
+var marks; // mark array
 var score = []; // black and white captures
 
 function startGame() {
@@ -50,6 +52,13 @@ function startGame() {
         board[i] = new Array(boardSize);
         for (let j = 0; j < boardSize; ++j) {
             board[i][j] = empty;
+        }
+    }
+    marks = new Array(boardSize);
+    for (let i = 0; i < boardSize; ++i) {
+        marks[i] = new Array(boardSize);
+        for (let j = 0; j < boardSize; ++j) {
+            marks[i][j] = false;
         }
     }
 }
@@ -122,11 +131,20 @@ function sendAllClients(header, data) {
     }
 }
 
-function sendStone(client, x, y) {
+function sendMark(client, x, y) {
     let data = new Buffer(9, "hex");
-    data.write(board[x][y], 8, 1, "ascii")
     data.writeUInt32LE(x, 0);
     data.writeUInt32LE(y, 4);
+    data.writeUInt8(marks[x][y], 8);
+
+    sendMessage(client, MARK, data);
+}
+
+function sendStone(client, x, y) {
+    let data = new Buffer(9, "hex");
+    data.writeUInt32LE(x, 0);
+    data.writeUInt32LE(y, 4);
+    data.write(board[x][y], 8, 1, "ascii")
 
     sendMessage(client, SET, data);
 }
@@ -204,7 +222,6 @@ function getGroup(x, y) {
         value: board[x][y],
         enumerable: false,
     });
-    if (group.color == empty) return group;
 
     let findInGroup = function (x, y) { 
         for (let stone in group) {
@@ -252,6 +269,21 @@ function isAlive(group) {
 function isEmpty(x, y) {
     if (outOfBounds(x, y)) return false;
     return board[x][y] == empty;
+}
+
+function resolveMark(x, y) {
+    let isMarked = !marks[x][y];
+
+    let group = getGroup(x,y);
+    // TODO Coordinate class and neighbours()
+    for (let stone in group) {
+        let x = group[stone].x;
+        let y = group[stone].y;
+        marks[x][y] = isMarked;
+        forAllClients(function(client) {
+            sendMark(client, x, y);
+        });
+    }
 }
 
 function resolveMove(color, x, y) {
@@ -317,6 +349,22 @@ handlers[SET] = function(client, data) {
     }
 };
 
+handlers[MARK] = function(client, data) {
+    let x = data.readUInt32LE(0);
+    let y = data.readUInt32LE(4);
+
+    if (playing == false) {
+        if (board[x][y] != 'e') {
+            console.log("Mark:","(" + x +", " + y + ")");
+            resolveMark(x, y);
+
+            forAllClients(function(client) {
+                sendScore(client);
+            });
+        }
+    }
+};
+
 handlers[TURN] = function (client) {
     if (playing && client.color == currentPlayer) {
         if (pass) {
@@ -340,7 +388,7 @@ handlers[RESET] = function () {
     }
 };
 
-handlers[KILL] = function () {
+handlers[KICK_ALL] = function () {
     delete players[white];
     delete players[black];
 
@@ -350,3 +398,19 @@ handlers[KILL] = function () {
     }
     clients = {}
 };
+
+handlers[KILL] = function () {
+    for (let i = 0; i < boardSize; ++i) {
+        for (let j = 0; j < boardSize; ++j) {
+            if (marks[i][j]) {
+                board[i][j] = empty;
+                marks[i][j] = false;
+
+                forAllClients(function(client) {
+                    sendStone(client, i, j);
+                    sendMark(client, i, j);
+                });
+            }
+        }
+    }
+}
