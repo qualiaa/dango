@@ -103,7 +103,6 @@ function processData(data) {
 function sendMessage(client, header, data) {
     let message = header;
     if (data !== undefined) {
-        console.log(header,data);
         message += data;
     }
     message += "\r\n"
