@@ -13,12 +13,14 @@ Board::Board(Connection& c, unsigned size)
 {
     using tank::RectangleShape;
 
+    // Create board rectangle
     const auto pixelSize = stoneSize * size;
     auto g = makeGraphic<tank::RectangleShape>(tank::Vectoru{pixelSize,pixelSize});
     g->setFillColor({0,125,0});
 
     const unsigned stoneRadius = /*std::ceil*/(stoneSize/2.0);
 
+    // Create board lines
     for (unsigned i = 0; i < size; ++i) {
         const unsigned offset = i * stoneSize + stoneRadius;
         makeGraphic<RectangleShape>(tank::Rectu{0, offset, pixelSize, 1})
@@ -27,12 +29,31 @@ Board::Board(Connection& c, unsigned size)
             ->setFillColor({});
     }
 
+    // Create hoshi
+    tank::CircleShape hoshi(3);
+    hoshi.setOrigin(hoshi.getSize() / 2);
+    hoshi.setFillColor({});
+    unsigned reducedSize = size - 6;
+    if (size % 2 == 1 and reducedSize <= size) {
+        for (unsigned i = 0; i < 3; ++i) {
+            unsigned x = (i * std::floor(reducedSize / 2)) + 3;
+            for (unsigned j = 0; j < 3; ++j) {
+                unsigned y = (j * std::floor(reducedSize / 2)) + 3;
+                auto ss = stoneSize;
+                makeGraphic<tank::CircleShape>(hoshi)
+                    ->setPos({x*ss + stoneRadius, y*ss + stoneRadius});
+            }
+        }
+    }
+
+    // Create cursor
+    cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
+    hideCursor();
+
+    // Create mark and stone flyweights
     mark_.setSize({stoneRadius,stoneRadius});
     mark_.setFillColor({127,127,127});
     mark_.setPos(tank::Vectori(mark_.getSize() / 2));
-
-    cursor_ = makeGraphic<tank::CircleShape>(stoneRadius);
-    hideCursor();
 
     stoneFlyweights_[White] = tank::CircleShape(stoneRadius);
     stoneFlyweights_[Black] = tank::CircleShape(stoneRadius);
