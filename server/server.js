@@ -215,21 +215,18 @@ function validMove(color, x, y, delta) {
     if (ko(delta)) return false;
 
     let board = game.board.add(delta);
-    let result = false;
-    result |= isSafeNeighbour(color, x + 1, y, board) ||
-              isSafeNeighbour(color, x, y + 1, board) ||
-              isSafeNeighbour(color, x - 1, y, board) ||
-              isSafeNeighbour(color, x, y - 1, board);
+    if(isSafeNeighbour(x + 1, y, board) || isSafeNeighbour(x, y + 1, board) ||
+       isSafeNeighbour(x - 1, y, board) || isSafeNeighbour(x, y - 1, board)) {
+        return true;
+    }
 
-    if(!result) result = isAlive(getGroup(x, y), board);
-    return result;
+    return isAlive(getGroup(x, y, board), board);
 }
 
 // is this square a safe neighbour
-function isSafeNeighbour(color, x, y, board) {
+function isSafeNeighbour(x, y, board) {
     if (outOfBounds(x, y)) return false;
-    let stone = board.elements[x][y];
-    if (stone == empty) return true; // safe if empty
+    if (board.elements[x][y] == empty) return true; // safe if empty
     else return false;
 }
 
@@ -265,10 +262,13 @@ function ko(delta) {
        .eql(Matrix.Zero(game.boardSize, game.boardSize));
 }
 
-function getGroup(x, y) {
+function getGroup(x, y, board) {
+    if (board === undefined) {
+        board = game.board;
+    }
     let group = [];
     Object.defineProperty(group, "color", { 
-        value: game.board.elements[x][y],
+        value: board.elements[x][y],
         enumerable: false,
     });
 
@@ -281,7 +281,7 @@ function getGroup(x, y) {
     // Naive search
     let addToGroup = function (x, y) {
         if (outOfBounds(x, y)) return;
-        if (game.board.elements[x][y] == group.color) {
+        if (board.elements[x][y] == group.color) {
             if (!findInGroup(x, y)) {
                 let stone = {};
                 Object.defineProperties(stone, {
