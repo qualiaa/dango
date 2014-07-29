@@ -151,14 +151,14 @@ function sendStone(client, x, y) {
 }
 
 function sendDelta(client, delta) {
-        // send stones
-        for (let i = 0; i < game.boardSize; ++i) {
-            for (let j = 0; j < game.boardSize; ++j) {
-                if (delta.elements[i][j] != 0) {
-                    sendStone(client, i, j);
-                }
+    // send stones
+    for (let i = 0; i < game.boardSize; ++i) {
+        for (let j = 0; j < game.boardSize; ++j) {
+            if (delta.elements[i][j] != 0) {
+                sendStone(client, i, j);
             }
         }
+    }
 }
 
 function sendBoard(client) {
@@ -207,33 +207,62 @@ function assignColor(client) {
     sendMessage(client, PLAYER, encodeColor(color));
 }
 
-function validMove(color, x, y) {
+function validMove(color, x, y, delta) {
     if (outOfBounds(x, y)) return false;
     if (!game.playing) return false;
     if (color != game.currentPlayer) return false;
     if (game.board.elements[x][y] != empty) return false;
+    if (ko(delta)) return false;
 
-    // set board for checks
-    game.board.elements[x][y] = color;
+    let board = game.board.add(delta);
     let result = false;
-    result |= isSafeNeighbour(color, x + 1, y) ||
-              isSafeNeighbour(color, x, y + 1) ||
-              isSafeNeighbour(color, x - 1, y) ||
-              isSafeNeighbour(color, x, y - 1);
+    result |= isSafeNeighbour(color, x + 1, y, board) ||
+              isSafeNeighbour(color, x, y + 1, board) ||
+              isSafeNeighbour(color, x - 1, y, board) ||
+              isSafeNeighbour(color, x, y - 1, board);
 
-    if(!result) result = isAlive(getGroup(x, y));
-    // reset board
-    game.board.elements[x][y] = empty;
+    if(!result) result = isAlive(getGroup(x, y), board);
     return result;
 }
 
 // is this square a safe neighbour
-function isSafeNeighbour(color, x, y) {
+function isSafeNeighbour(color, x, y, board) {
     if (outOfBounds(x, y)) return false;
-    let stone = game.board.elements[x][y];
+    let stone = board.elements[x][y];
     if (stone == empty) return true; // safe if empty
-    if (stone == color) return false; 
-    else return !isAlive(getGroup(x,y)); // safe if kills other stones
+    else return false;
+}
+
+function isAlive(group, board) {
+    if (board === undefined) {
+        board = game.board;
+    }
+
+    for (let stone in group) {
+        let x = group[stone].x;
+        let y = group[stone].y;
+        if (isEmpty(x + 1, y, board) ||
+            isEmpty(x, y + 1, board) ||
+            isEmpty(x - 1, y, board) ||
+            isEmpty(x, y - 1, board)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function isEmpty(x, y, board) {
+    if (outOfBounds(x, y)) return false;
+    if (board === undefined) {
+        board = game.board;
+    }
+    return board.elements[x][y] == empty;
+}
+
+function ko(delta) {
+    if (game.deltas.length == 0) return false;
+    return game.deltas[game.deltas.length - 1].add(delta)
+       .eql(Matrix.Zero(game.boardSize, game.boardSize));
 }
 
 function getGroup(x, y) {
@@ -272,33 +301,6 @@ function getGroup(x, y) {
     return group;
 }
 
-function isAlive(group, delta) {
-    let board = game.board;
-    if (delta !== undefined) {
-        board = board.add(delta);
-    }
-
-    for (let stone in group) {
-        let x = group[stone].x;
-        let y = group[stone].y;
-        if (isEmpty(x + 1, y, board) ||
-            isEmpty(x, y + 1, board) ||
-            isEmpty(x - 1, y, board) ||
-            isEmpty(x, y - 1, board)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function isEmpty(x, y, board) {
-    if (outOfBounds(x, y)) return false;
-    if (board === undefined) {
-        board = game.board;
-    }
-    return board.elements[x][y] == empty;
-}
-
 function resolveMark(x, y) {
     let isMarked = !game.marks[x][y];
 
@@ -316,6 +318,8 @@ function resolveMark(x, y) {
 
 function calculateDelta(color, x, y) {
     let delta = Matrix.Zero(game.boardSize, game.boardSize);
+    if (outOfBounds(x, y)) return delta;
+
     delta.elements[x][y] = color;
 
     // TODO Coordinate class and neighbours()
@@ -329,10 +333,11 @@ function calculateDelta(color, x, y) {
 
 function resolveCaptures(color, x, y, delta) {
     if (!outOfBounds(x, y)) {
-        let stone = game.board.elements[x][y];
+        let board = game.board.add(delta);
+        let stone = board.elements[x][y];
         if (stone != color && stone != empty) {
             let group = getGroup(x,y);
-            if (!isAlive(group, delta)) {
+            if (!isAlive(group, board)) {
                 for (let stone in group) {
                     let x = group[stone].x;
                     let y = group[stone].y;
@@ -372,10 +377,10 @@ handlers[SET] = function(client, data) {
     let y = data.readUInt32LE(4);
     let color = client.color;
 
-    if (validMove(color, x, y)) {
+    let delta = calculateDelta(color, x, y);
+    if (validMove(color, x, y, delta)) {
         game.pass = false; // last move was not a pass
         console.log("Move:","(" + x +", " + y + ")",color);
-        let delta = calculateDelta(color, x, y);
         // change board
         game.board = game.board.add(delta);
         // store delta
@@ -416,11 +421,11 @@ handlers[TURN] = function (client) {
             console.log("Consecutive pass: ending game");
             game.playing = false;
             game.pass = false;
-            game.deltas.push(Matrix.Zero(game.boardSize,game.boardSize));
             sendAllClients(END);
         } else {
             console.log("Pass");
             game.pass = true; // last move was a pass
+            game.deltas.push(Matrix.Zero(game.boardSize,game.boardSize));
             switchTurn();
         }
     }
@@ -474,7 +479,12 @@ handlers[UNDO] = function () {
 
         // calculate score delta
         let color = game.currentPlayer;
-        game.score[color] -= calculateScore(color, lastTurn);
+        if (!game.pass) {
+            game.score[color] -= calculateScore(color, lastTurn);
+        } else {
+            game.pass = false;
+            // TODO: Allow consecutive passes after undo
+        }
         forAllClients(function(client) {
             sendDelta(client, lastTurn);
             sendScore(client);
