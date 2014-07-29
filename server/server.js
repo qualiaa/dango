@@ -303,15 +303,15 @@ function resolveMark(x, y) {
     }
 }
 
-function resolveMove(color, x, y) {
+function calculateDelta(color, x, y) {
     let delta = Matrix.Zero(game.boardSize, game.boardSize);
     delta.elements[x][y] = color;
 
     // TODO Coordinate class and neighbours()
-    game.score[color] += resolveCaptures(color, x + 1, y, delta);
-    game.score[color] += resolveCaptures(color, x, y + 1, delta);
-    game.score[color] += resolveCaptures(color, x - 1, y, delta);
-    game.score[color] += resolveCaptures(color, x, y - 1, delta);
+    resolveCaptures(color, x + 1, y, delta);
+    resolveCaptures(color, x, y + 1, delta);
+    resolveCaptures(color, x - 1, y, delta);
+    resolveCaptures(color, x, y - 1, delta);
 
     return delta;
 }
@@ -327,11 +327,24 @@ function resolveCaptures(color, x, y, delta) {
                     let y = group[stone].y;
                     delta.elements[x][y] -= group.color;
                 }
-                return group.length;
             }
         }
     }
-    return 0;
+}
+
+function calculateScore(color, delta) {
+    let sum = sumOfElements(delta);
+    return (sum - color)*color;
+}
+
+function sumOfElements(matrix) {
+    let sum = 0;
+    for (let i = 0; i < matrix.rows(); ++i) {
+        for (let j = 0; j < matrix.cols(); ++j) {
+            sum += matrix.elements[i][j];
+        }
+    }
+    return sum;
 }
 
 function switchTurn() {
@@ -351,10 +364,13 @@ handlers[SET] = function(client, data) {
     if (validMove(color, x, y)) {
         game.pass = false; // last move was not a pass
         console.log("Move:","(" + x +", " + y + ")",color);
-        let delta = resolveMove(color, x, y);
+        let delta = calculateDelta(color, x, y);
+        // change board
         game.board = game.board.add(delta);
+        // store delta
         game.deltas.push(delta);
 
+        // send stones
         for (let i = 0; i < game.boardSize; ++i) {
             for (let j = 0; j < game.boardSize; ++j) {
                 if (delta.elements[i][j] != 0) {
@@ -365,9 +381,15 @@ handlers[SET] = function(client, data) {
             }
         }
 
-        forAllClients(function(client) {
-            sendScore(client);
-        });
+        // calculate score delta
+        let score = calculateScore(color, delta);
+        // send score
+        if (score) {
+            game.score[color] += score;
+            forAllClients(function(client) {
+                sendScore(client);
+            });
+        }
         switchTurn();
     } else {
         console.log("Invalid move:","(" + x +", " + y + ")",color);
