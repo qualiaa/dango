@@ -17,6 +17,7 @@ const PLAYER = 'p'; // Send player status (white/black/neither)
 const RESET  = 'r'; // / Restart game
 const SET    = 's'; // Send stone state / receive move
 const TURN   = 't'; // Send turn information / switch turn
+const UNDO   = 'u'; // Send turn information / switch turn
 const KICK_ALL = '\t'; // Kick all clients
 var handlers = {}
 
@@ -59,7 +60,6 @@ function startGame() {
             game.marks[i][j] = false;
         }
     }
-    game.deltas.push(Matrix.Zeros(game.boardSize,game.boardSize));
 }
 
 startGame();
@@ -148,6 +148,17 @@ function sendStone(client, x, y) {
     data.write(encodeColor(stone), 8, 1, "ascii")
 
     sendMessage(client, SET, data);
+}
+
+function sendDelta(client, delta) {
+        // send stones
+        for (let i = 0; i < game.boardSize; ++i) {
+            for (let j = 0; j < game.boardSize; ++j) {
+                if (delta.elements[i][j] != 0) {
+                    sendStone(client, i, j);
+                }
+            }
+        }
 }
 
 function sendBoard(client) {
@@ -370,26 +381,11 @@ handlers[SET] = function(client, data) {
         // store delta
         game.deltas.push(delta);
 
-        // send stones
-        for (let i = 0; i < game.boardSize; ++i) {
-            for (let j = 0; j < game.boardSize; ++j) {
-                if (delta.elements[i][j] != 0) {
-                    forAllClients(function(client) {
-                        sendStone(client, i, j);
-                    });
-                }
-            }
-        }
-
-        // calculate score delta
-        let score = calculateScore(color, delta);
-        // send score
-        if (score) {
-            game.score[color] += score;
-            forAllClients(function(client) {
-                sendScore(client);
-            });
-        }
+        game.score[color] += calculateScore(color, delta);
+        forAllClients(function(client) {
+            sendDelta(client, delta);
+            sendScore(client);
+        });
         switchTurn();
     } else {
         console.log("Invalid move:","(" + x +", " + y + ")",color);
@@ -467,5 +463,21 @@ handlers[KILL] = function () {
                 });
             }
         }
+    }
+}
+
+handlers[UNDO] = function () {
+    if (game.deltas.length != 0) {
+        switchTurn();
+        let lastTurn = game.deltas.pop();
+        game.board = game.board.subtract(lastTurn);
+
+        // calculate score delta
+        let color = game.currentPlayer;
+        game.score[color] -= calculateScore(color, lastTurn);
+        forAllClients(function(client) {
+            sendDelta(client, lastTurn);
+            sendScore(client);
+        });
     }
 }

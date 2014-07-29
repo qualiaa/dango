@@ -17,6 +17,7 @@ public:
     static constexpr char RESET  = 'r'; // Restart Game
     static constexpr char SET    = 's'; // Set a stone
     static constexpr char TURN   = 't'; // Set the turn / pass
+    static constexpr char UNDO   = 'u'; // Undo
     static constexpr char KICK_ALL = '\t'; // Kick all
     static const std::string delimiter;
 

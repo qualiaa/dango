@@ -55,6 +55,14 @@ MainWorld::MainWorld(std::shared_ptr<boost::asio::io_service> io, Connection&& c
                                      // Send message
                                      connection_.write(data, data.size());
                                  });
+    connect(K::KeyDown(Key::LControl) && K::KeyPress(Key::Z),
+                                 [this]{
+                                     // Set up message
+                                     boost::array<char, 1> data;
+                                     data[0] = Message::UNDO;
+                                     // Send message
+                                     connection_.write(data, data.size());
+                                 });
     connect(K::KeyDown(Key::K),
             [this]{
                 // Set up message
