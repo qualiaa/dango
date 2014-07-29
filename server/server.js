@@ -1,14 +1,10 @@
 var net = require("net");
+var sylvester =require("sylvester"),
+    Matrix = sylvester.Matrix;
 
 const MAX_BOARD_SIZE     = 99;
 const DEFAULT_BOARD_SIZE = 19;
 
-var boardSize;
-if (process.argv[2] && process.argv[2] < MAX_BOARD_SIZE) {
-    boardSize = process.argv[2];
-} else {
-    boardSize = DEFAULT_BOARD_SIZE;
-}
 const port = process.argv[3] ? process.argv[3] : 8037;
 
 // Headers          // Send / Receive
@@ -25,42 +21,45 @@ const KICK_ALL = '\t'; // Kick all clients
 var handlers = {}
 
 // Stones
-const white = 'w';
-const black = 'b';
-const empty = 'e';
+const white =  1;
+const black = -1;
+const empty =  0;
 
 // Clients list and current players
-var clients = {}
-var players = {}
+var clients = {};
+var players = {};
 
 // Game variables
-var playing;
-var currentPlayer;
-var pass; // was last move a pass?
-var board; // board array
-var marks; // mark array
-var score = []; // black and white captures
+var game = {};
+game.playing;
+game.currentPlayer;
+game.pass; // was last move a pass?
+game.board; // board array
+game.marks; // mark array
+game.deltas = []; // move deltas
+game.score = []; // black and white captures
+game.boardSize;
+if (process.argv[2] && process.argv[2] < MAX_BOARD_SIZE) {
+    game.boardSize = process.argv[2];
+} else {
+    game.boardSize = DEFAULT_BOARD_SIZE;
+}
 
 function startGame() {
-    score[white] = score[black] = 0;
-    currentPlayer = black;
-    pass = false;
-    playing = true;
+    game.score[white] = game.score[black] = 0;
+    game.currentPlayer = black;
+    game.pass = false;
+    game.playing = true;
 
-    board = new Array(boardSize);
-    for (let i = 0; i < boardSize; ++i) {
-        board[i] = new Array(boardSize);
-        for (let j = 0; j < boardSize; ++j) {
-            board[i][j] = empty;
+    game.board = Matrix.Zero(game.boardSize, game.boardSize);
+    game.marks = new Array(game.boardSize);
+    for (let i = 0; i < game.boardSize; ++i) {
+        game.marks[i] = new Array(game.boardSize);
+        for (let j = 0; j < game.boardSize; ++j) {
+            game.marks[i][j] = false;
         }
     }
-    marks = new Array(boardSize);
-    for (let i = 0; i < boardSize; ++i) {
-        marks[i] = new Array(boardSize);
-        for (let j = 0; j < boardSize; ++j) {
-            marks[i][j] = false;
-        }
-    }
+    game.deltas.push(Matrix.Zeros(game.boardSize,game.boardSize));
 }
 
 startGame();
@@ -80,7 +79,7 @@ var server = net.createServer(function(c) {
     sendScore(c);
     sendTurn(c);
     assignColor(c);
-    if (!playing) sendMessage(c, END);
+    if (!game.playing) sendMessage(c, END);
 
     console.log("Client " + c.id + " connected");
 
@@ -111,6 +110,7 @@ function processData(data) {
 
 function sendMessage(client, header, data) {
     let message = header;
+    console.log(header,data);
     if (data !== undefined) {
         message += data;
     }
@@ -135,16 +135,17 @@ function sendMark(client, x, y) {
     let data = new Buffer(9, "hex");
     data.writeUInt32LE(x, 0);
     data.writeUInt32LE(y, 4);
-    data.writeUInt8(marks[x][y], 8);
+    data.writeUInt8(game.marks[x][y], 8);
 
     sendMessage(client, MARK, data);
 }
 
 function sendStone(client, x, y) {
+    let stone = game.board.elements[x][y];
     let data = new Buffer(9, "hex");
     data.writeUInt32LE(x, 0);
     data.writeUInt32LE(y, 4);
-    data.write(board[x][y], 8, 1, "ascii")
+    data.write(encodeColor(stone), 8, 1, "ascii")
 
     sendMessage(client, SET, data);
 }
@@ -152,12 +153,12 @@ function sendStone(client, x, y) {
 function sendBoard(client) {
     // send grid size
     let data = new Buffer(4, "hex");
-    data.writeUInt32LE(boardSize, 0);
+    data.writeUInt32LE(game.boardSize, 0);
     sendMessage(client, BOARD, data);
 
     // send grid data
-    for (let i = 0; i < boardSize; ++i) {
-        for (let j = 0; j < boardSize; ++j) {
+    for (let i = 0; i < game.boardSize; ++i) {
+        for (let j = 0; j < game.boardSize; ++j) {
             sendStone(client, i, j);
         }
     }
@@ -165,13 +166,21 @@ function sendBoard(client) {
 
 function sendScore(client) {
     let data = new Buffer(8, "hex");
-    data.writeUInt32LE(score[black], 0);
-    data.writeUInt32LE(score[white], 4);
+    data.writeUInt32LE(game.score[black], 0);
+    data.writeUInt32LE(game.score[white], 4);
     sendMessage(client, SCORE, data);
 }
 
 function sendTurn(client) {
-    sendMessage(client, TURN, currentPlayer);
+    sendMessage(client, TURN, encodeColor(game.currentPlayer));
+}
+
+function encodeColor(color) {
+    switch (color) {
+        case black: return 'b'; break;
+        case white: return 'w'; break;
+        case empty: return 'e'; break;
+    }
 }
 
 function assignColor(client) {
@@ -184,17 +193,17 @@ function assignColor(client) {
         client.color = color = white;
     }
 
-    sendMessage(client, PLAYER, color)
+    sendMessage(client, PLAYER, encodeColor(color));
 }
 
 function validMove(color, x, y) {
     if (outOfBounds(x, y)) return false;
-    if (!playing) return false;
-    if (color != currentPlayer) return false;
-    if (board[x][y] != empty) return false;
+    if (!game.playing) return false;
+    if (color != game.currentPlayer) return false;
+    if (game.board.elements[x][y] != empty) return false;
 
     // set board for checks
-    board[x][y] = color;
+    game.board.elements[x][y] = color;
     let result = false;
     result |= isSafeNeighbour(color, x + 1, y) ||
               isSafeNeighbour(color, x, y + 1) ||
@@ -203,14 +212,14 @@ function validMove(color, x, y) {
 
     if(!result) result = isAlive(getGroup(x, y));
     // reset board
-    board[x][y] = empty;
+    game.board.elements[x][y] = empty;
     return result;
 }
 
 // is this square a safe neighbour
 function isSafeNeighbour(color, x, y) {
     if (outOfBounds(x, y)) return false;
-    let stone = board[x][y];
+    let stone = game.board.elements[x][y];
     if (stone == empty) return true; // safe if empty
     if (stone == color) return false; 
     else return !isAlive(getGroup(x,y)); // safe if kills other stones
@@ -219,7 +228,7 @@ function isSafeNeighbour(color, x, y) {
 function getGroup(x, y) {
     let group = [];
     Object.defineProperty(group, "color", { 
-        value: board[x][y],
+        value: game.board.elements[x][y],
         enumerable: false,
     });
 
@@ -232,7 +241,7 @@ function getGroup(x, y) {
     // Naive search
     let addToGroup = function (x, y) {
         if (outOfBounds(x, y)) return;
-        if (board[x][y] == group.color) {
+        if (game.board.elements[x][y] == group.color) {
             if (!findInGroup(x, y)) {
                 let stone = {};
                 Object.defineProperties(stone, {
@@ -252,34 +261,42 @@ function getGroup(x, y) {
     return group;
 }
 
-function isAlive(group) {
+function isAlive(group, delta) {
+    let board = game.board;
+    if (delta !== undefined) {
+        board = board.add(delta);
+    }
+
     for (let stone in group) {
         let x = group[stone].x;
         let y = group[stone].y;
-        if (isEmpty(x + 1, y) ||
-            isEmpty(x, y + 1) ||
-            isEmpty(x - 1, y) ||
-            isEmpty(x, y - 1)) {
+        if (isEmpty(x + 1, y, board) ||
+            isEmpty(x, y + 1, board) ||
+            isEmpty(x - 1, y, board) ||
+            isEmpty(x, y - 1, board)) {
             return true;
         }
     }
     return false;
 }
 
-function isEmpty(x, y) {
+function isEmpty(x, y, board) {
     if (outOfBounds(x, y)) return false;
-    return board[x][y] == empty;
+    if (board === undefined) {
+        board = game.board;
+    }
+    return board.elements[x][y] == empty;
 }
 
 function resolveMark(x, y) {
-    let isMarked = !marks[x][y];
+    let isMarked = !game.marks[x][y];
 
     let group = getGroup(x,y);
     // TODO Coordinate class and neighbours()
     for (let stone in group) {
         let x = group[stone].x;
         let y = group[stone].y;
-        marks[x][y] = isMarked;
+        game.marks[x][y] = isMarked;
         forAllClients(function(client) {
             sendMark(client, x, y);
         });
@@ -287,28 +304,28 @@ function resolveMark(x, y) {
 }
 
 function resolveMove(color, x, y) {
-    board[x][y] = color;
+    let delta = Matrix.Zero(game.boardSize, game.boardSize);
+    delta.elements[x][y] = color;
 
     // TODO Coordinate class and neighbours()
-    score[color] += resolveCaptures(color, x + 1, y);
-    score[color] += resolveCaptures(color, x, y + 1);
-    score[color] += resolveCaptures(color, x - 1, y);
-    score[color] += resolveCaptures(color, x, y - 1);
+    game.score[color] += resolveCaptures(color, x + 1, y, delta);
+    game.score[color] += resolveCaptures(color, x, y + 1, delta);
+    game.score[color] += resolveCaptures(color, x - 1, y, delta);
+    game.score[color] += resolveCaptures(color, x, y - 1, delta);
+
+    return delta;
 }
 
-function resolveCaptures(color, x, y) {
+function resolveCaptures(color, x, y, delta) {
     if (!outOfBounds(x, y)) {
-        let stone = board[x][y];
+        let stone = game.board.elements[x][y];
         if (stone != color && stone != empty) {
             let group = getGroup(x,y);
-            if (!isAlive(group)) {
+            if (!isAlive(group, delta)) {
                 for (let stone in group) {
                     let x = group[stone].x;
                     let y = group[stone].y;
-                    board[x][y] = empty;
-                    forAllClients(function(client) {
-                        sendStone(client, x, y);
-                    });
+                    delta.elements[x][y] -= group.color;
                 }
                 return group.length;
             }
@@ -318,13 +335,12 @@ function resolveCaptures(color, x, y) {
 }
 
 function switchTurn() {
-    currentPlayer = currentPlayer == white ? black : white;
-    console.log("Switching turn:", currentPlayer);
-    sendAllClients(TURN, currentPlayer);
+    game.currentPlayer = game.currentPlayer == white ? black : white;
+    forAllClients(sendTurn);
 }
 
 function outOfBounds(x, y) {
-    return (x < 0 || x >= boardSize || y < 0 || y >= boardSize);
+    return (x < 0 || x >= game.boardSize || y < 0 || y >= game.boardSize);
 }
 
 handlers[SET] = function(client, data) {
@@ -333,12 +349,23 @@ handlers[SET] = function(client, data) {
     let color = client.color;
 
     if (validMove(color, x, y)) {
-        pass = false; // last move was not a pass
+        game.pass = false; // last move was not a pass
         console.log("Move:","(" + x +", " + y + ")",color);
-        resolveMove(color, x, y);
+        let delta = resolveMove(color, x, y);
+        game.board = game.board.add(delta);
+        game.deltas.push(delta);
+
+        for (let i = 0; i < game.boardSize; ++i) {
+            for (let j = 0; j < game.boardSize; ++j) {
+                if (delta.elements[i][j] != 0) {
+                    forAllClients(function(client) {
+                        sendStone(client, i, j);
+                    });
+                }
+            }
+        }
 
         forAllClients(function(client) {
-            sendStone(client, x, y);
             sendScore(client);
         });
         switchTurn();
@@ -353,8 +380,8 @@ handlers[MARK] = function(client, data) {
     let x = data.readUInt32LE(0);
     let y = data.readUInt32LE(4);
 
-    if (playing == false) {
-        if (board[x][y] != 'e') {
+    if (game.playing == false) {
+        if (game.board.elements[x][y] != empty) {
             console.log("Mark:","(" + x +", " + y + ")");
             resolveMark(x, y);
 
@@ -366,20 +393,24 @@ handlers[MARK] = function(client, data) {
 };
 
 handlers[TURN] = function (client) {
-    if (playing && client.color == currentPlayer) {
-        if (pass) {
-            playing = false;
-            pass = false;
+    if (game.playing && client.color == game.currentPlayer) {
+        if (game.pass) {
+            console.log("Consecutive pass: ending game");
+            game.playing = false;
+            game.pass = false;
+            game.deltas.push(Matrix.Zero(game.boardSize,game.boardSize));
             sendAllClients(END);
         } else {
-            pass = true; // last move was a pass
+            console.log("Pass");
+            game.pass = true; // last move was a pass
             switchTurn();
         }
     }
 };
 
 handlers[RESET] = function () {
-    if (!playing) {
+    console.log("Starting new game");
+    if (!game.playing) {
         startGame();
         sendAllClients(RESET);
         forAllClients(sendBoard);
@@ -389,6 +420,7 @@ handlers[RESET] = function () {
 };
 
 handlers[KICK_ALL] = function () {
+    console.log("Kicking all clients");
     delete players[white];
     delete players[black];
 
@@ -400,11 +432,12 @@ handlers[KICK_ALL] = function () {
 };
 
 handlers[KILL] = function () {
-    for (let i = 0; i < boardSize; ++i) {
-        for (let j = 0; j < boardSize; ++j) {
-            if (marks[i][j]) {
-                board[i][j] = empty;
-                marks[i][j] = false;
+    console.log("Clearing marked stones");
+    for (let i = 0; i < game.boardSize; ++i) {
+        for (let j = 0; j < game.boardSize; ++j) {
+            if (game.marks[i][j]) {
+                game.board.elements[i][j] = empty;
+                game.marks[i][j] = false;
 
                 forAllClients(function(client) {
                     sendStone(client, i, j);
